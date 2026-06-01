@@ -1,0 +1,33 @@
+package ru.trainingapp.core.database.entity
+
+import androidx.room.Entity
+import androidx.room.ForeignKey
+import androidx.room.Index
+import androidx.room.PrimaryKey
+import ru.trainingapp.core.model.WeightUnit
+
+@Entity(
+    tableName = "workout_exercise_progress_sets",
+    foreignKeys = [
+        ForeignKey(
+            entity = WorkoutExerciseProgressPointEntity::class,
+            parentColumns = ["id"],
+            childColumns = ["progressPointId"],
+            onDelete = ForeignKey.CASCADE
+        )
+    ],
+    indices = [
+        Index(value = ["progressPointId"]),
+        Index(value = ["progressPointId", "setNumber"], unique = true)
+    ]
+)
+data class WorkoutExerciseProgressSetEntity(
+    @PrimaryKey
+    val id: String,
+    val progressPointId: String,
+    val setNumber: Int,
+    val reps: Int?,
+    val weightValue: Double?,
+    val weightUnit: WeightUnit?,
+    val durationSeconds: Int?
+)
