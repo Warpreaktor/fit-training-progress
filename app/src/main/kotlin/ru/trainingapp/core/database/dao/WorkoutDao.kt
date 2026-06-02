@@ -55,7 +55,7 @@ interface WorkoutDao {
     suspend fun getWorkoutById(id: String): WorkoutEntity?
 
     @Insert
-    suspend fun insertWorkout(entity: WorkoutEntity)
+    suspend fun insertWorkout(entity: WorkoutEntity): Long
 
     @Update
     suspend fun updateWorkout(entity: WorkoutEntity)
@@ -73,7 +73,7 @@ interface WorkoutDao {
         """
     )
     suspend fun archiveWorkout(
-        id: String,
+        id: Long,
         archivedAt: Long
     )
 }

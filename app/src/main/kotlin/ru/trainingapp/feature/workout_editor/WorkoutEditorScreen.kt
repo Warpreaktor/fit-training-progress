@@ -20,11 +20,12 @@ import ru.trainingapp.core.ui.component.EmptyState
 
 @Composable
 fun WorkoutEditorRoute(
-    workoutId: Long,
+    workoutId: String,
     onBack: () -> Unit,
     viewModel: WorkoutEditorViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+
     WorkoutEditorScreen(
         uiState = uiState.copy(workoutId = workoutId),
         onBack = onBack,

@@ -1,9 +1,9 @@
 package ru.trainingapp.core.database.model
 
 data class WorkoutListItemDbModel(
-    val id: String,
+    val id: Long,
     val name: String,
-    val description: String?,
+    val description: String = "",
     val isLocked: Boolean,
     val createdAt: Long,
     val updatedAt: Long,

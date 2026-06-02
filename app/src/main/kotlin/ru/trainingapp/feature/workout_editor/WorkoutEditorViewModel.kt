@@ -5,13 +5,16 @@ import androidx.lifecycle.ViewModel
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import ru.trainingapp.navigation.AppRoute
 import javax.inject.Inject
 
 @HiltViewModel
 class WorkoutEditorViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
 ) : ViewModel() {
-    private val workoutId: Long = savedStateHandle["workoutId"] ?: 0L
+
+    private val workoutId: String =
+        savedStateHandle[AppRoute.WorkoutEditor.ARG_WORKOUT_ID] ?: ""
 
     private val _uiState = MutableStateFlow(
         WorkoutEditorUiState(
@@ -19,10 +22,11 @@ class WorkoutEditorViewModel @Inject constructor(
             title = "Живой редактор тренировки",
         ),
     )
+
     val uiState: StateFlow<WorkoutEditorUiState> = _uiState
 }
 
 data class WorkoutEditorUiState(
-    val workoutId: Long,
+    val workoutId: String,
     val title: String,
 )

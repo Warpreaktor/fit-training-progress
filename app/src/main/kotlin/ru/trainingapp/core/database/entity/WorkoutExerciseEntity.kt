@@ -22,17 +22,15 @@ import androidx.room.PrimaryKey
         )
     ],
     indices = [
-        Index(value = ["workoutId"]),
-        Index(value = ["exerciseDefinitionId"]),
-        Index(value = ["workoutId", "sortOrder"])
+        Index("workoutId"),
+        Index("exerciseDefinitionId")
     ]
 )
 data class WorkoutExerciseEntity(
-
-    @PrimaryKey
-    val id: String,
-    val workoutId: String,
-    val exerciseDefinitionId: String,
+    @PrimaryKey(autoGenerate = true)
+    val id: Long = 0,
+    val workoutId: Long,
+    val exerciseDefinitionId: Long,
     val sortOrder: Int,
     val comment: String?,
     val isChecked: Boolean = false,

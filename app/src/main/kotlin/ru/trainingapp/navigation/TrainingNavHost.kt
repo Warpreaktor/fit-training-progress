@@ -39,9 +39,16 @@ fun TrainingNavHost(
 
         composable(
             route = AppRoute.WorkoutEditor.route,
-            arguments = listOf(navArgument(AppRoute.WorkoutEditor.ARG_WORKOUT_ID) { type = NavType.LongType }),
+            arguments = listOf(
+                navArgument(AppRoute.WorkoutEditor.ARG_WORKOUT_ID) {
+                    type = NavType.StringType
+                }
+            ),
         ) { backStackEntry ->
-            val workoutId = backStackEntry.arguments?.getLong(AppRoute.WorkoutEditor.ARG_WORKOUT_ID) ?: 0L
+            val workoutId = backStackEntry.arguments
+                ?.getString(AppRoute.WorkoutEditor.ARG_WORKOUT_ID)
+                .orEmpty()
+
             WorkoutEditorRoute(
                 workoutId = workoutId,
                 onBack = { navController.popBackStack() },

@@ -29,7 +29,7 @@ interface ExerciseDefinitionDao {
         LIMIT 1
         """
     )
-    suspend fun getExerciseDefinitionById(id: String): ExerciseDefinitionEntity?
+    suspend fun getExerciseDefinitionById(id: Long): ExerciseDefinitionEntity?
 
     @Insert
     suspend fun insertExerciseDefinition(entity: ExerciseDefinitionEntity)
@@ -50,7 +50,7 @@ interface ExerciseDefinitionDao {
         """
     )
     suspend fun archiveExerciseDefinition(
-        id: String,
+        id: Long,
         archivedAt: Long
     )
 }

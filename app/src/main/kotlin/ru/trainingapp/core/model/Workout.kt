@@ -12,7 +12,7 @@ data class Workout(
 data class ExerciseDefinition(
     val id: Long,
     val name: String,
-    val description: String?,
+    val description: String,
 )
 
 data class WorkoutExercise(
