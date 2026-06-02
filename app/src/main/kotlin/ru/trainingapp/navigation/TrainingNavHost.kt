@@ -41,13 +41,13 @@ fun TrainingNavHost(
             route = AppRoute.WorkoutEditor.route,
             arguments = listOf(
                 navArgument(AppRoute.WorkoutEditor.ARG_WORKOUT_ID) {
-                    type = NavType.StringType
+                    type = NavType.LongType
                 }
             ),
         ) { backStackEntry ->
-            val workoutId = backStackEntry.arguments
-                ?.getString(AppRoute.WorkoutEditor.ARG_WORKOUT_ID)
-                .orEmpty()
+            val workoutId = requireNotNull(backStackEntry.arguments) {
+                "Missing navigation arguments"
+            }.getLong(AppRoute.WorkoutEditor.ARG_WORKOUT_ID)
 
             WorkoutEditorRoute(
                 workoutId = workoutId,

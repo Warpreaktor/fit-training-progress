@@ -42,7 +42,7 @@ interface WorkoutDao {
         LIMIT 1
         """
     )
-    fun observeWorkoutById(id: String): Flow<WorkoutEntity?>
+    fun observeWorkoutById(id: Long): Flow<WorkoutEntity?>
 
     @Query(
         """
@@ -75,5 +75,17 @@ interface WorkoutDao {
     suspend fun archiveWorkout(
         id: Long,
         archivedAt: Long
+    )
+
+    @Query(
+        """
+        UPDATE workouts
+        SET updatedAt = :updatedAt
+        WHERE id = :id
+        """
+    )
+    suspend fun touchWorkout(
+        id: Long,
+        updatedAt: Long,
     )
 }

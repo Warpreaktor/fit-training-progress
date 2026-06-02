@@ -23,9 +23,9 @@ import ru.trainingapp.core.model.WeightUnit
 )
 data class WorkoutExerciseSetEntity(
 
-    @PrimaryKey
-    val id: String,
-    val workoutExerciseId: String,
+    @PrimaryKey(autoGenerate = true)
+    val id: Long = 0L,
+    val workoutExerciseId: Long,
     val setNumber: Int,
     val reps: Int?,
     val weightValue: Double?,

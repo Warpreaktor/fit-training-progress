@@ -20,7 +20,7 @@ import ru.trainingapp.core.ui.component.EmptyState
 
 @Composable
 fun WorkoutEditorRoute(
-    workoutId: String,
+    workoutId: Long,
     onBack: () -> Unit,
     viewModel: WorkoutEditorViewModel = hiltViewModel(),
 ) {

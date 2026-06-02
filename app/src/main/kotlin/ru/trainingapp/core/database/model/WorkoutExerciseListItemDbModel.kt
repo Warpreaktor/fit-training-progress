@@ -1,9 +1,9 @@
 package ru.trainingapp.core.database.model
 
 data class WorkoutExerciseListItemDbModel(
-    val id: String,
-    val workoutId: String,
-    val exerciseDefinitionId: String,
+    val id: Long,
+    val workoutId: Long,
+    val exerciseDefinitionId: Long,
     val exerciseName: String,
     val sortOrder: Int,
     val comment: String?,

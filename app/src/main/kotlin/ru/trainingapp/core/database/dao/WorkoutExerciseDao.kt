@@ -36,7 +36,7 @@ interface WorkoutExerciseDao {
         """
     )
     fun observeActiveWorkoutExercises(
-        workoutId: String
+        workoutId: Long
     ): Flow<List<WorkoutExerciseListItemDbModel>>
 
     @Query(
@@ -47,10 +47,10 @@ interface WorkoutExerciseDao {
         LIMIT 1
         """
     )
-    suspend fun getWorkoutExerciseById(id: String): WorkoutExerciseEntity?
+    suspend fun getWorkoutExerciseById(id: Long): WorkoutExerciseEntity?
 
     @Insert
-    suspend fun insertWorkoutExercise(entity: WorkoutExerciseEntity)
+    suspend fun insertWorkoutExercise(entity: WorkoutExerciseEntity): Long
 
     @Update
     suspend fun updateWorkoutExercise(entity: WorkoutExerciseEntity)
@@ -99,7 +99,7 @@ interface WorkoutExerciseDao {
         """
     )
     suspend fun archiveWorkoutExercise(
-        id: String,
+        id: Long,
         archivedAt: Long
     )
 
@@ -111,5 +111,18 @@ interface WorkoutExerciseDao {
           AND isArchived = 0
         """
     )
-    suspend fun getNextSortOrder(workoutId: String): Int
+    suspend fun getNextSortOrder(workoutId: Long): Int
+
+    @Query(
+        """
+        SELECT *
+        FROM workout_exercises
+        WHERE workoutId = :workoutId
+            AND isArchived = 0
+        ORDER BY sortOrder ASC
+        """
+    )
+    suspend fun getActiveWorkoutExerciseEntities(
+        workoutId: Long,
+    ): List<WorkoutExerciseEntity>
 }

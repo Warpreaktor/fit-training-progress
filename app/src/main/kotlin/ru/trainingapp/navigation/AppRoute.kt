@@ -1,7 +1,5 @@
 package ru.trainingapp.navigation
 
-import android.net.Uri
-
 sealed class AppRoute(val route: String) {
 
     data object WorkoutList : AppRoute("workouts")

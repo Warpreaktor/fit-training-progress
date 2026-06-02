@@ -21,7 +21,7 @@ interface WorkoutExerciseSetDao {
         """
     )
     fun observeSetsByWorkoutExerciseId(
-        workoutExerciseId: String
+        workoutExerciseId: Long
     ): Flow<List<WorkoutExerciseSetEntity>>
 
     @Query(
@@ -33,7 +33,7 @@ interface WorkoutExerciseSetDao {
         """
     )
     suspend fun getSetsByWorkoutExerciseId(
-        workoutExerciseId: String
+        workoutExerciseId: Long
     ): List<WorkoutExerciseSetEntity>
 
     @Query(
@@ -44,10 +44,10 @@ interface WorkoutExerciseSetDao {
         LIMIT 1
         """
     )
-    suspend fun getSetById(id: String): WorkoutExerciseSetEntity?
+    suspend fun getSetById(id: Long): WorkoutExerciseSetEntity?
 
     @Insert
-    suspend fun insertSet(entity: WorkoutExerciseSetEntity)
+    suspend fun insertSet(entity: WorkoutExerciseSetEntity): Long
 
     @Update
     suspend fun updateSet(entity: WorkoutExerciseSetEntity)
@@ -64,7 +64,7 @@ interface WorkoutExerciseSetDao {
         WHERE id = :id
         """
     )
-    suspend fun deleteSetById(id: String)
+    suspend fun deleteSetById(id: Long)
 
     @Query(
         """
@@ -73,5 +73,5 @@ interface WorkoutExerciseSetDao {
         WHERE workoutExerciseId = :workoutExerciseId
         """
     )
-    suspend fun getNextSetNumber(workoutExerciseId: String): Int
+    suspend fun getNextSetNumber(workoutExerciseId: Long): Int
 }

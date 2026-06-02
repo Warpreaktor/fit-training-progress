@@ -11,13 +11,13 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import ru.trainingapp.core.domain.workout.ArchiveWorkoutUseCase
 import ru.trainingapp.core.domain.workout.CreateWorkoutUseCase
-import ru.trainingapp.core.domain.workout.ObserveWorkoutsUseCase
+import ru.trainingapp.core.domain.workout.ObserveWorkoutUseCase
 import ru.trainingapp.core.model.Workout
 import javax.inject.Inject
 
 @HiltViewModel
 class WorkoutListViewModel @Inject constructor(
-    observeWorkoutsUseCase: ObserveWorkoutsUseCase,
+    observeWorkoutUseCase: ObserveWorkoutUseCase,
     private val createWorkoutUseCase: CreateWorkoutUseCase,
     private val archiveWorkoutUseCase: ArchiveWorkoutUseCase,
 ) : ViewModel() {
@@ -26,7 +26,7 @@ class WorkoutListViewModel @Inject constructor(
 
     val uiState: StateFlow<WorkoutListUiState> =
         combine(
-            observeWorkoutsUseCase(),
+            observeWorkoutUseCase(),
             editorState,
         ) { workouts, editor ->
             WorkoutListUiState(
