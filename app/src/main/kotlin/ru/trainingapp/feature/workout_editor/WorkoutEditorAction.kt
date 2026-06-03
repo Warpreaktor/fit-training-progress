@@ -6,6 +6,8 @@ sealed interface WorkoutEditorAction {
 
     data object DismissAddExerciseDialog : WorkoutEditorAction
 
+    data object ErrorMessageShown : WorkoutEditorAction
+
     data class ExerciseSelected(
         val exerciseDefinitionId: Long,
     ) : WorkoutEditorAction
