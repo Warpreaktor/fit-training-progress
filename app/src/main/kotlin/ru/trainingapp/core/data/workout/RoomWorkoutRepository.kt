@@ -7,6 +7,8 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
+import ru.trainingapp.core.data.mapper.toDomain
+import ru.trainingapp.core.data.mapper.toEntity
 import ru.trainingapp.core.database.TrainingDatabase
 import ru.trainingapp.core.database.dao.WorkoutDao
 import ru.trainingapp.core.database.dao.WorkoutExerciseDao
@@ -16,10 +18,12 @@ import ru.trainingapp.core.database.entity.WorkoutExerciseEntity
 import ru.trainingapp.core.database.entity.WorkoutExerciseSetEntity
 import ru.trainingapp.core.database.model.WorkoutExerciseListItemDbModel
 import ru.trainingapp.core.domain.repository.WorkoutRepository
+import ru.trainingapp.core.model.WeightUnit
 import ru.trainingapp.core.model.Workout
 import ru.trainingapp.core.model.WorkoutEditorData
 import ru.trainingapp.core.model.WorkoutExercise
 import ru.trainingapp.core.model.WorkoutExerciseSet
+import ru.trainingapp.core.model.WorkoutExerciseSetLoadType
 import javax.inject.Inject
 
 class RoomWorkoutRepository @Inject constructor(
@@ -173,9 +177,10 @@ class RoomWorkoutRepository @Inject constructor(
                 WorkoutExerciseSetEntity(
                     workoutExerciseId = workoutExerciseId,
                     setNumber = nextSetNumber,
-                    reps = null,
+                    reps = 1,
+                    loadType = WorkoutExerciseSetLoadType.WEIGHT,
                     weightValue = null,
-                    weightUnit = null,
+                    weightUnit = WeightUnit.KG,
                     durationSeconds = null,
                     createdAt = now,
                     updatedAt = now,
@@ -337,19 +342,53 @@ class RoomWorkoutRepository @Inject constructor(
         )
     }
 
-    private fun WorkoutExerciseSetEntity.toDomain(): WorkoutExerciseSet {
-        return WorkoutExerciseSet(
-            id = id,
-            setNumber = setNumber,
-            reps = reps,
-            weightValue = weightValue,
-            weightUnit = weightUnit,
-            durationSeconds = durationSeconds,
-        )
-    }
-
     private enum class MoveDirection {
         UP,
         DOWN,
+    }
+
+    override suspend fun getWorkoutExerciseSet(
+        workoutExerciseSetId: Long,
+    ): WorkoutExerciseSet? {
+        return workoutExerciseSetDao
+            .getSetById(workoutExerciseSetId)
+            ?.toDomain()
+    }
+
+    override suspend fun updateWorkoutExerciseSet(
+        workoutExerciseSet: WorkoutExerciseSet,
+    ) {
+        val now = System.currentTimeMillis()
+
+        database.withTransaction {
+            val currentSetEntity = workoutExerciseSetDao.getSetById(workoutExerciseSet.id)
+                ?: return@withTransaction
+
+            val workoutExercise = workoutExerciseDao.getWorkoutExerciseById(
+                currentSetEntity.workoutExerciseId,
+            ) ?: return@withTransaction
+
+            val updatedSet = workoutExerciseSet.copy(
+                workoutExerciseId = currentSetEntity.workoutExerciseId,
+                setNumber = currentSetEntity.setNumber,
+                createdAt = currentSetEntity.createdAt,
+                updatedAt = now,
+            )
+
+            workoutExerciseSetDao.updateSet(
+                updatedSet.toEntity(),
+            )
+
+            workoutExerciseDao.updateWorkoutExercise(
+                workoutExercise.copy(
+                    updatedAt = now,
+                ),
+            )
+
+            workoutDao.touchWorkout(
+                id = workoutExercise.workoutId,
+                updatedAt = now,
+            )
+        }
     }
 }

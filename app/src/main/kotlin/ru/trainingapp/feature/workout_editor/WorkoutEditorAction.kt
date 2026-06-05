@@ -1,5 +1,8 @@
 package ru.trainingapp.feature.workout_editor
 
+import ru.trainingapp.core.model.WeightUnit
+import ru.trainingapp.core.model.WorkoutExerciseSetLoadType
+
 sealed interface WorkoutEditorAction {
 
     data object AddExerciseClick : WorkoutEditorAction
@@ -30,5 +33,30 @@ sealed interface WorkoutEditorAction {
 
     data class MoveExerciseDownClick(
         val workoutExerciseId: Long,
+    ) : WorkoutEditorAction
+
+    data class SetRepsChanged(
+        val workoutExerciseSetId: Long,
+        val value: String,
+    ) : WorkoutEditorAction
+
+    data class SetLoadTypeChanged(
+        val workoutExerciseSetId: Long,
+        val loadType: WorkoutExerciseSetLoadType,
+    ) : WorkoutEditorAction
+
+    data class SetWeightChanged(
+        val workoutExerciseSetId: Long,
+        val value: String,
+    ) : WorkoutEditorAction
+
+    data class SetWeightUnitChanged(
+        val workoutExerciseSetId: Long,
+        val weightUnit: WeightUnit,
+    ) : WorkoutEditorAction
+
+    data class SetDurationSecondsChanged(
+        val workoutExerciseSetId: Long,
+        val value: String,
     ) : WorkoutEditorAction
 }

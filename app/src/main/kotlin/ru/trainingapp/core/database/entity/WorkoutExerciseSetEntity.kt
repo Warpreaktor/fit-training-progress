@@ -5,6 +5,7 @@ import androidx.room.ForeignKey
 import androidx.room.Index
 import androidx.room.PrimaryKey
 import ru.trainingapp.core.model.WeightUnit
+import ru.trainingapp.core.model.WorkoutExerciseSetLoadType
 
 @Entity(
     tableName = "workout_exercise_sets",
@@ -13,24 +14,24 @@ import ru.trainingapp.core.model.WeightUnit
             entity = WorkoutExerciseEntity::class,
             parentColumns = ["id"],
             childColumns = ["workoutExerciseId"],
-            onDelete = ForeignKey.CASCADE
-        )
+            onDelete = ForeignKey.CASCADE,
+        ),
     ],
     indices = [
         Index(value = ["workoutExerciseId"]),
-        Index(value = ["workoutExerciseId", "setNumber"], unique = true)
-    ]
+        Index(value = ["workoutExerciseId", "setNumber"], unique = true),
+    ],
 )
 data class WorkoutExerciseSetEntity(
-
     @PrimaryKey(autoGenerate = true)
     val id: Long = 0L,
     val workoutExerciseId: Long,
     val setNumber: Int,
-    val reps: Int?,
+    val reps: Int,
+    val loadType: WorkoutExerciseSetLoadType,
     val weightValue: Double?,
     val weightUnit: WeightUnit?,
     val durationSeconds: Int?,
     val createdAt: Long,
-    val updatedAt: Long
+    val updatedAt: Long,
 )

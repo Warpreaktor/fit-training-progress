@@ -3,7 +3,7 @@ package ru.trainingapp.core.domain.repository
 import kotlinx.coroutines.flow.Flow
 import ru.trainingapp.core.model.Workout
 import ru.trainingapp.core.model.WorkoutEditorData
-import ru.trainingapp.navigation.AppRoute
+import ru.trainingapp.core.model.WorkoutExerciseSet
 
 interface WorkoutRepository {
 
@@ -34,6 +34,14 @@ interface WorkoutRepository {
     suspend fun addWorkoutExerciseSet(
         workoutExerciseId: Long,
     ): Long
+
+    suspend fun getWorkoutExerciseSet(
+        workoutExerciseSetId: Long,
+    ): WorkoutExerciseSet?
+
+    suspend fun updateWorkoutExerciseSet(
+        workoutExerciseSet: WorkoutExerciseSet,
+    )
 
     suspend fun removeWorkoutExerciseSet(
         workoutExerciseSetId: Long,

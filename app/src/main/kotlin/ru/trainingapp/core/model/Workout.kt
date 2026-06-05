@@ -28,9 +28,10 @@ data class WorkoutExercise(
 
 data class WorkoutExerciseSet(
     val id: Long,
+    val workoutExerciseId: Long,
     val setNumber: Int,
-    val reps: Int?,
-    val weightValue: Double?,
-    val weightUnit: WeightUnit?,
-    val durationSeconds: Int?,
+    val reps: Int,
+    val load: WorkoutExerciseSetLoad,
+    val createdAt: Long,
+    val updatedAt: Long,
 )

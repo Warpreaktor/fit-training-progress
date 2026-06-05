@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
@@ -24,12 +25,16 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExposedDropdownMenuDefaults
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
@@ -45,12 +50,30 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.foundation.layout.width
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExposedDropdownMenuBox
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Text
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.unit.dp
+import ru.trainingapp.core.model.WeightUnit
 import ru.trainingapp.core.model.ExerciseDefinition
 import ru.trainingapp.core.model.WorkoutExercise
 import ru.trainingapp.core.model.WorkoutExerciseSet
+import ru.trainingapp.core.model.WorkoutExerciseSetLoad
+import ru.trainingapp.core.model.WorkoutExerciseSetLoadType
 import kotlin.collections.indexOfFirst
 
 @Composable
@@ -177,7 +200,7 @@ private fun WorkoutEditorScreen(
 
 @Composable
 private fun WorkoutExerciseList(
-    exercises: List<WorkoutExercise>,
+    exercises: List<WorkoutExerciseUi>,
     onAction: (WorkoutEditorAction) -> Unit,
 ) {
     LazyColumn(
@@ -235,6 +258,7 @@ private fun WorkoutExerciseList(
                         )
                     )
                 },
+                onAction = onAction,
             )
         }
     }
@@ -242,7 +266,7 @@ private fun WorkoutExerciseList(
 
 @Composable
 private fun WorkoutExerciseCard(
-    exercise: WorkoutExercise,
+    exercise: WorkoutExerciseUi,
     canMoveUp: Boolean,
     canMoveDown: Boolean,
     onMoveUpClick: () -> Unit,
@@ -250,6 +274,7 @@ private fun WorkoutExerciseCard(
     onArchiveClick: () -> Unit,
     onAddSetClick: () -> Unit,
     onRemoveSetClick: (Long) -> Unit,
+    onAction: (WorkoutEditorAction) -> Unit,
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -324,9 +349,8 @@ private fun WorkoutExerciseCard(
                     exercise.sets.forEach { set ->
                         WorkoutExerciseSetRow(
                             set = set,
-                            onRemoveClick = {
-                                onRemoveSetClick(set.id)
-                            },
+                            onRemoveClick = { onRemoveSetClick(set.id) },
+                            onAction = onAction,
                         )
                     }
                 }
@@ -350,10 +374,12 @@ private fun WorkoutExerciseCard(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun WorkoutExerciseSetRow(
-    set: WorkoutExerciseSet,
+    set: WorkoutExerciseSetUi,
     onRemoveClick: () -> Unit,
+    onAction: (WorkoutEditorAction) -> Unit,
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -361,7 +387,7 @@ private fun WorkoutExerciseSetRow(
             containerColor = MaterialTheme.colorScheme.surface,
         ),
     ) {
-        Row(
+        Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(
@@ -370,34 +396,202 @@ private fun WorkoutExerciseSetRow(
                     end = 4.dp,
                     bottom = 10.dp,
                 ),
-            verticalAlignment = Alignment.CenterVertically,
+            verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            Column(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(2.dp),
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text(
                     text = "Подход ${set.setNumber}",
+                    modifier = Modifier.weight(1f),
                     style = MaterialTheme.typography.bodyMedium,
                     fontWeight = FontWeight.Medium,
                 )
 
-                Text(
-                    text = buildSetDescription(set),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
+                IconButton(
+                    onClick = onRemoveClick,
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Delete,
+                        contentDescription = "Удалить подход",
+                    )
+                }
             }
 
-            IconButton(
-                onClick = onRemoveClick,
+            WorkoutExerciseSetLoadTypeSelector(
+                selectedLoadType = set.loadType,
+                onLoadTypeChanged = { loadType ->
+                    onAction(
+                        WorkoutEditorAction.SetLoadTypeChanged(
+                            workoutExerciseSetId = set.id,
+                            loadType = loadType,
+                        )
+                    )
+                },
+            )
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.Top,
             ) {
-                Icon(
-                    imageVector = Icons.Default.Delete,
-                    contentDescription = "Удалить подход",
+                OutlinedTextField(
+                    value = set.repsText,
+                    onValueChange = { value ->
+                        onAction(
+                            WorkoutEditorAction.SetRepsChanged(
+                                workoutExerciseSetId = set.id,
+                                value = value,
+                            )
+                        )
+                    },
+                    modifier = Modifier.weight(1f),
+                    label = { Text("Повторы") },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(
+                        keyboardType = KeyboardType.Number,
+                    ),
+                )
+
+                when (set.loadType) {
+                    WorkoutExerciseSetLoadType.WEIGHT -> {
+                        OutlinedTextField(
+                            value = set.weightText,
+                            onValueChange = { value ->
+                                onAction(
+                                    WorkoutEditorAction.SetWeightChanged(
+                                        workoutExerciseSetId = set.id,
+                                        value = value,
+                                    )
+                                )
+                            },
+                            modifier = Modifier.weight(1f),
+                            label = { Text("Вес") },
+                            singleLine = true,
+                            keyboardOptions = KeyboardOptions(
+                                keyboardType = KeyboardType.Decimal,
+                            ),
+                        )
+
+                        WeightUnitDropdown(
+                            weightUnit = set.weightUnit,
+                            onWeightUnitChanged = { weightUnit ->
+                                onAction(
+                                    WorkoutEditorAction.SetWeightUnitChanged(
+                                        workoutExerciseSetId = set.id,
+                                        weightUnit = weightUnit,
+                                    )
+                                )
+                            },
+                        )
+                    }
+
+                    WorkoutExerciseSetLoadType.TIME -> {
+                        OutlinedTextField(
+                            value = set.durationSecondsText,
+                            onValueChange = { value ->
+                                onAction(
+                                    WorkoutEditorAction.SetDurationSecondsChanged(
+                                        workoutExerciseSetId = set.id,
+                                        value = value,
+                                    )
+                                )
+                            },
+                            modifier = Modifier.weight(1f),
+                            label = { Text("Секунды") },
+                            singleLine = true,
+                            keyboardOptions = KeyboardOptions(
+                                keyboardType = KeyboardType.Number,
+                            ),
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun WeightUnitDropdown(
+    weightUnit: WeightUnit,
+    onWeightUnitChanged: (WeightUnit) -> Unit,
+) {
+    var isExpanded by remember { mutableStateOf(false) }
+
+    ExposedDropdownMenuBox(
+        expanded = isExpanded,
+        onExpandedChange = {
+            isExpanded = !isExpanded
+        },
+    ) {
+        OutlinedTextField(
+            value = weightUnit.name.lowercase(),
+            onValueChange = {},
+            modifier = Modifier
+                .menuAnchor()
+                .width(92.dp),
+            label = {
+                Text("Ед.")
+            },
+            readOnly = true,
+            singleLine = true,
+            trailingIcon = {
+                ExposedDropdownMenuDefaults.TrailingIcon(
+                    expanded = isExpanded,
+                )
+            },
+        )
+
+        ExposedDropdownMenu(
+            expanded = isExpanded,
+            onDismissRequest = {
+                isExpanded = false
+            },
+        ) {
+            WeightUnit.entries.forEach { unit ->
+                DropdownMenuItem(
+                    text = {
+                        Text(unit.name.lowercase())
+                    },
+                    onClick = {
+                        onWeightUnitChanged(unit)
+                        isExpanded = false
+                    },
                 )
             }
         }
+    }
+}
+
+@Composable
+private fun WorkoutExerciseSetLoadTypeSelector(
+    selectedLoadType: WorkoutExerciseSetLoadType,
+    onLoadTypeChanged: (WorkoutExerciseSetLoadType) -> Unit,
+) {
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        FilterChip(
+            selected = selectedLoadType == WorkoutExerciseSetLoadType.WEIGHT,
+            onClick = {
+                onLoadTypeChanged(WorkoutExerciseSetLoadType.WEIGHT)
+            },
+            label = {
+                Text("Вес")
+            },
+        )
+
+        FilterChip(
+            selected = selectedLoadType == WorkoutExerciseSetLoadType.TIME,
+            onClick = {
+                onLoadTypeChanged(WorkoutExerciseSetLoadType.TIME)
+            },
+            label = {
+                Text("Время")
+            },
+        )
     }
 }
 
@@ -511,30 +705,38 @@ private fun ExerciseDefinitionListItem(
 private fun buildSetDescription(
     set: WorkoutExerciseSet,
 ): String {
-    val reps = set.reps?.toString() ?: "—"
-    val weight = buildWeightText(set)
-    val duration = buildDurationText(set.durationSeconds)
+    val reps = set.reps.toString()
 
-    return "Повторы: $reps · Вес: $weight · Время: $duration"
+    return when (val load = set.load) {
+        is WorkoutExerciseSetLoad.Weight -> {
+            "Повторы: $reps · Вес: ${buildWeightText(load)}"
+        }
+
+        is WorkoutExerciseSetLoad.Time -> {
+            "Повторы: $reps · Время: ${buildDurationText(load.durationSeconds)}"
+        }
+    }
 }
 
 private fun buildWeightText(
-    set: WorkoutExerciseSet,
+    load: WorkoutExerciseSetLoad.Weight,
 ): String {
-    val value = set.weightValue ?: return "—"
-    val unit = set.weightUnit?.name.orEmpty()
-
-    return if (unit.isBlank()) {
-        value.toString()
-    } else {
-        "$value $unit"
-    }
+    val value = load.value ?: return "—"
+    return "${formatWeightValue(value)} ${load.unit.name.lowercase()}"
 }
 
 private fun buildDurationText(
     durationSeconds: Int?,
 ): String {
-    val seconds = durationSeconds ?: return "—"
+    return durationSeconds?.let { "$it сек" } ?: "—"
+}
 
-    return "${seconds}с"
+private fun formatWeightValue(
+    value: Double,
+): String {
+    return if (value % 1.0 == 0.0) {
+        value.toInt().toString()
+    } else {
+        value.toString()
+    }
 }

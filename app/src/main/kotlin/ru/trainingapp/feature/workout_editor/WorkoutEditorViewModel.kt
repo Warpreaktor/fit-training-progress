@@ -19,6 +19,12 @@ import ru.trainingapp.core.domain.workout.ArchiveWorkoutExerciseUseCase
 import ru.trainingapp.core.domain.workout.MoveWorkoutExerciseUseCase
 import ru.trainingapp.core.domain.workout.ObserveWorkoutEditorUseCase
 import ru.trainingapp.core.domain.workout.RemoveWorkoutExerciseSetUseCase
+import ru.trainingapp.core.domain.workout.UpdateWorkoutExerciseSetUseCase
+import ru.trainingapp.core.model.WeightUnit
+import ru.trainingapp.core.model.WorkoutExerciseSetLoadType
+import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.update
 
 @HiltViewModel
 class WorkoutEditorViewModel @Inject constructor(
@@ -30,6 +36,7 @@ class WorkoutEditorViewModel @Inject constructor(
     private val addWorkoutExerciseSetUseCase: AddWorkoutExerciseSetUseCase,
     private val removeWorkoutExerciseSetUseCase: RemoveWorkoutExerciseSetUseCase,
     private val moveWorkoutExerciseUseCase: MoveWorkoutExerciseUseCase,
+    private val updateWorkoutExerciseSetUseCase: UpdateWorkoutExerciseSetUseCase,
 ) : ViewModel() {
 
     private val workoutId: Long = requireNotNull(
@@ -42,18 +49,28 @@ class WorkoutEditorViewModel @Inject constructor(
 
     private val errorMessage = MutableStateFlow<String?>(null)
 
+    private val setDrafts = MutableStateFlow<Map<Long, WorkoutExerciseSetDraft>>(emptyMap())
+
     val uiState: StateFlow<WorkoutEditorUiState> = combine(
         observeWorkoutEditorUseCase(workoutId),
         observeExerciseDefinitionsUseCase(),
         isAddExerciseDialogVisible,
         errorMessage,
-    ) { editorData, availableExercises, isDialogVisible, error ->
+        setDrafts,
+    ) { editorData, availableExercises, isDialogVisible, error, drafts ->
         WorkoutEditorUiState(
             workoutId = workoutId,
             title = editorData?.workout?.name.orEmpty(),
             description = editorData?.workout?.description,
             isLoading = editorData == null,
-            exercises = editorData?.exercises.orEmpty(),
+            exercises = editorData
+                ?.exercises
+                .orEmpty()
+                .map { exercise ->
+                    exercise.toUi(
+                        setDrafts = drafts,
+                    )
+                },
             availableExercises = availableExercises,
             isAddExerciseDialogVisible = isDialogVisible,
             errorMessage = error,
@@ -106,6 +123,42 @@ class WorkoutEditorViewModel @Inject constructor(
             is WorkoutEditorAction.MoveExerciseDownClick -> {
                 moveWorkoutExerciseDown(action.workoutExerciseId)
             }
+
+            is WorkoutEditorAction.SetRepsChanged -> {
+                updateSetReps(
+                    workoutExerciseSetId = action.workoutExerciseSetId,
+                    value = action.value,
+                )
+            }
+
+            is WorkoutEditorAction.SetLoadTypeChanged -> {
+                updateSetLoadType(
+                    workoutExerciseSetId = action.workoutExerciseSetId,
+                    loadType = action.loadType,
+                )
+            }
+
+            is WorkoutEditorAction.SetWeightChanged -> {
+                updateSetWeight(
+                    workoutExerciseSetId = action.workoutExerciseSetId,
+                    value = action.value,
+                )
+            }
+
+            is WorkoutEditorAction.SetWeightUnitChanged -> {
+                updateSetWeightUnit(
+                    workoutExerciseSetId = action.workoutExerciseSetId,
+                    weightUnit = action.weightUnit,
+                )
+            }
+
+            is WorkoutEditorAction.SetDurationSecondsChanged -> {
+                updateSetDurationSeconds(
+                    workoutExerciseSetId = action.workoutExerciseSetId,
+                    value = action.value,
+                )
+            }
+
         }
     }
 
@@ -180,4 +233,155 @@ class WorkoutEditorViewModel @Inject constructor(
             }
         }
     }
+
+    private fun updateSetReps(
+        workoutExerciseSetId: Long,
+        value: String,
+    ) {
+        val reps = value.toIntOrNull() ?: return
+
+        launchOperation {
+            updateWorkoutExerciseSetUseCase(
+                UpdateWorkoutExerciseSetUseCase.Command.UpdateReps(
+                    setId = workoutExerciseSetId,
+                    reps = reps,
+                )
+            )
+        }
+    }
+
+    private fun updateSetLoadType(
+        workoutExerciseSetId: Long,
+        loadType: WorkoutExerciseSetLoadType,
+    ) {
+        launchOperation {
+            updateWorkoutExerciseSetUseCase(
+                UpdateWorkoutExerciseSetUseCase.Command.ChangeLoadType(
+                    setId = workoutExerciseSetId,
+                    loadType = loadType,
+                )
+            )
+        }
+    }
+
+    private fun updateSetWeight(
+        workoutExerciseSetId: Long,
+        value: String,
+    ) {
+        val parsedWeight = value.parseNullableDouble()
+
+        if (parsedWeight is ParsedNumber.Invalid) {
+            return
+        }
+
+        val weightValue = (parsedWeight as ParsedNumber.Valid).value
+
+        launchOperation {
+            updateWorkoutExerciseSetUseCase(
+                UpdateWorkoutExerciseSetUseCase.Command.UpdateWeight(
+                    setId = workoutExerciseSetId,
+                    value = weightValue,
+                )
+            )
+        }
+    }
+
+    private fun updateSetWeightUnit(
+        workoutExerciseSetId: Long,
+        weightUnit: WeightUnit,
+    ) {
+        launchOperation {
+            updateWorkoutExerciseSetUseCase(
+                UpdateWorkoutExerciseSetUseCase.Command.UpdateWeightUnit(
+                    setId = workoutExerciseSetId,
+                    unit = weightUnit,
+                )
+            )
+        }
+    }
+
+    private fun updateSetDurationSeconds(
+        workoutExerciseSetId: Long,
+        value: String,
+    ) {
+        val parsedDuration = value.parseNullableInt()
+
+        if (parsedDuration is ParsedNumber.Invalid) {
+            return
+        }
+
+        val durationSeconds = (parsedDuration as ParsedNumber.Valid).value
+
+        launchOperation {
+            updateWorkoutExerciseSetUseCase(
+                UpdateWorkoutExerciseSetUseCase.Command.UpdateDurationSeconds(
+                    setId = workoutExerciseSetId,
+                    durationSeconds = durationSeconds,
+                )
+            )
+        }
+    }
+
+    private fun String.toNullableIntOrReturn(): Int? {
+        if (isBlank()) {
+            return NULL_NUMBER_MARKER
+        }
+
+        return toIntOrNull()
+    }
+
+    private fun String.toNullableDoubleOrReturn(): Double? {
+        if (isBlank()) {
+            return NULL_NUMBER_MARKER_DOUBLE
+        }
+
+        return replace(',', '.').toDoubleOrNull()
+    }
+
+    private companion object {
+        const val NULL_NUMBER_MARKER = -1
+        const val NULL_NUMBER_MARKER_DOUBLE = -1.0
+    }
+}
+
+private sealed interface ParsedNumber<out T> {
+
+    data object Invalid : ParsedNumber<Nothing>
+
+    data class Valid<T>(
+        val value: T?,
+    ) : ParsedNumber<T>
+}
+
+private fun String.isDigitsOnlyOrBlank(): Boolean {
+    return all { character -> character.isDigit() }
+}
+
+private fun String.isDecimalDraft(): Boolean {
+    return isEmpty() || matches(Regex("""\d*([.,]\d*)?"""))
+}
+
+private fun String.parseNullableInt(): ParsedNumber<Int> {
+    if (isBlank()) {
+        return ParsedNumber.Valid(null)
+    }
+
+    return toIntOrNull()
+        ?.let { value -> ParsedNumber.Valid(value) }
+        ?: ParsedNumber.Invalid
+}
+
+private fun String.parseNullableDouble(): ParsedNumber<Double> {
+    if (isBlank()) {
+        return ParsedNumber.Valid(null)
+    }
+
+    if (endsWith('.') || endsWith(',')) {
+        return ParsedNumber.Invalid
+    }
+
+    return replace(',', '.')
+        .toDoubleOrNull()
+        ?.let { value -> ParsedNumber.Valid(value) }
+        ?: ParsedNumber.Invalid
 }
