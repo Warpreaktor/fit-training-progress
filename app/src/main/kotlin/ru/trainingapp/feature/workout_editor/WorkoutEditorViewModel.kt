@@ -11,6 +11,7 @@ import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import ru.trainingapp.core.domain.exercise.ObserveExerciseDefinitionsUseCase
 import ru.trainingapp.core.domain.workout.AddExerciseToWorkoutUseCase
@@ -252,10 +253,35 @@ class WorkoutEditorViewModel @Inject constructor(
         }
     }
 
+    private fun updateSetDraft(
+        workoutExerciseSetId: Long,
+        transform: (WorkoutExerciseSetDraft) -> WorkoutExerciseSetDraft,
+    ) {
+        setDrafts.update { currentDrafts ->
+            val currentDraft = currentDrafts[workoutExerciseSetId] ?: WorkoutExerciseSetDraft()
+
+            currentDrafts + (
+                    workoutExerciseSetId to transform(currentDraft)
+                    )
+        }
+    }
+
     private fun updateSetReps(
         workoutExerciseSetId: Long,
         value: String,
     ) {
+        if (!value.isDigitsOnlyOrBlank()) {
+            return
+        }
+
+        updateSetDraft(
+            workoutExerciseSetId = workoutExerciseSetId,
+        ) { draft ->
+            draft.copy(
+                repsText = value,
+            )
+        }
+
         val reps = value.toIntOrNull() ?: return
 
         launchOperation {
@@ -272,6 +298,24 @@ class WorkoutEditorViewModel @Inject constructor(
         workoutExerciseSetId: Long,
         loadType: WorkoutExerciseSetLoadType,
     ) {
+        updateSetDraft(
+            workoutExerciseSetId = workoutExerciseSetId,
+        ) { draft ->
+            when (loadType) {
+                WorkoutExerciseSetLoadType.WEIGHT -> {
+                    draft.copy(
+                        durationSecondsText = null,
+                    )
+                }
+
+                WorkoutExerciseSetLoadType.TIME -> {
+                    draft.copy(
+                        weightText = null,
+                    )
+                }
+            }
+        }
+
         launchOperation {
             updateWorkoutExerciseSetUseCase(
                 UpdateWorkoutExerciseSetUseCase.Command.ChangeLoadType(
@@ -286,6 +330,18 @@ class WorkoutEditorViewModel @Inject constructor(
         workoutExerciseSetId: Long,
         value: String,
     ) {
+        if (!value.isDecimalDraft()) {
+            return
+        }
+
+        updateSetDraft(
+            workoutExerciseSetId = workoutExerciseSetId,
+        ) { draft ->
+            draft.copy(
+                weightText = value,
+            )
+        }
+
         val parsedWeight = value.parseNullableDouble()
 
         if (parsedWeight is ParsedNumber.Invalid) {
@@ -322,6 +378,18 @@ class WorkoutEditorViewModel @Inject constructor(
         workoutExerciseSetId: Long,
         value: String,
     ) {
+        if (!value.isDigitsOnlyOrBlank()) {
+            return
+        }
+
+        updateSetDraft(
+            workoutExerciseSetId = workoutExerciseSetId,
+        ) { draft ->
+            draft.copy(
+                durationSecondsText = value,
+            )
+        }
+
         val parsedDuration = value.parseNullableInt()
 
         if (parsedDuration is ParsedNumber.Invalid) {
