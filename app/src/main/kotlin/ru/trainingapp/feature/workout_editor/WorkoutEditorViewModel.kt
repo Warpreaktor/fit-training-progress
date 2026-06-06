@@ -321,27 +321,6 @@ class WorkoutEditorViewModel @Inject constructor(
             )
         }
     }
-
-    private fun String.toNullableIntOrReturn(): Int? {
-        if (isBlank()) {
-            return NULL_NUMBER_MARKER
-        }
-
-        return toIntOrNull()
-    }
-
-    private fun String.toNullableDoubleOrReturn(): Double? {
-        if (isBlank()) {
-            return NULL_NUMBER_MARKER_DOUBLE
-        }
-
-        return replace(',', '.').toDoubleOrNull()
-    }
-
-    private companion object {
-        const val NULL_NUMBER_MARKER = -1
-        const val NULL_NUMBER_MARKER_DOUBLE = -1.0
-    }
 }
 
 private sealed interface ParsedNumber<out T> {
