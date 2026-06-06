@@ -38,11 +38,11 @@ import androidx.room.PrimaryKey
     ]
 )
 data class PendingWorkoutChangeEntity(
-    @PrimaryKey
-    val id: String,
-    val workoutId: String,
-    val workoutExerciseId: String,
-    val workoutExerciseSetId: String,
+    @PrimaryKey(autoGenerate = true)
+    val id: Long = 0L,
+    val workoutId: Long,
+    val workoutExerciseId: Long,
+    val workoutExerciseSetId: Long,
     val fieldName: String,
     val oldValue: String?,
     val newValue: String?,

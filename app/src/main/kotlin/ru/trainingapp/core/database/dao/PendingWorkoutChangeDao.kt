@@ -20,7 +20,7 @@ interface PendingWorkoutChangeDao {
         """
     )
     fun observePendingChangesByWorkoutId(
-        workoutId: String
+        workoutId: Long,
     ): Flow<List<PendingWorkoutChangeEntity>>
 
     @Query(
@@ -32,7 +32,7 @@ interface PendingWorkoutChangeDao {
         """
     )
     suspend fun getPendingChangesByWorkoutId(
-        workoutId: String
+        workoutId: Long,
     ): List<PendingWorkoutChangeEntity>
 
     @Query(
@@ -46,13 +46,13 @@ interface PendingWorkoutChangeDao {
         """
     )
     suspend fun findPendingChange(
-        workoutExerciseId: String,
-        workoutExerciseSetId: String,
-        fieldName: String
+        workoutExerciseId: Long,
+        workoutExerciseSetId: Long,
+        fieldName: String,
     ): PendingWorkoutChangeEntity?
 
     @Insert
-    suspend fun insertPendingChange(entity: PendingWorkoutChangeEntity)
+    suspend fun insertPendingChange(entity: PendingWorkoutChangeEntity): Long
 
     @Update
     suspend fun updatePendingChange(entity: PendingWorkoutChangeEntity)
@@ -69,10 +69,18 @@ interface PendingWorkoutChangeDao {
         """
     )
     suspend fun updatePendingChangeNewValue(
-        id: String,
+        id: Long,
         newValue: String?,
-        lastChangedAt: Long
+        lastChangedAt: Long,
     )
+
+    @Query(
+        """
+        DELETE FROM pending_workout_changes
+        WHERE id = :id
+        """
+    )
+    suspend fun deletePendingChangeById(id: Long)
 
     @Query(
         """
@@ -80,7 +88,7 @@ interface PendingWorkoutChangeDao {
         WHERE workoutId = :workoutId
         """
     )
-    suspend fun deletePendingChangesByWorkoutId(workoutId: String)
+    suspend fun deletePendingChangesByWorkoutId(workoutId: Long)
 
     @Query(
         """
@@ -88,5 +96,5 @@ interface PendingWorkoutChangeDao {
         WHERE workoutExerciseId = :workoutExerciseId
         """
     )
-    suspend fun deletePendingChangesByWorkoutExerciseId(workoutExerciseId: String)
+    suspend fun deletePendingChangesByWorkoutExerciseId(workoutExerciseId: Long)
 }

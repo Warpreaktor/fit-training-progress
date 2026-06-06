@@ -10,9 +10,11 @@ import kotlinx.coroutines.flow.map
 import ru.trainingapp.core.data.mapper.toDomain
 import ru.trainingapp.core.data.mapper.toEntity
 import ru.trainingapp.core.database.TrainingDatabase
+import ru.trainingapp.core.database.dao.PendingWorkoutChangeDao
 import ru.trainingapp.core.database.dao.WorkoutDao
 import ru.trainingapp.core.database.dao.WorkoutExerciseDao
 import ru.trainingapp.core.database.dao.WorkoutExerciseSetDao
+import ru.trainingapp.core.database.entity.PendingWorkoutChangeEntity
 import ru.trainingapp.core.database.entity.WorkoutEntity
 import ru.trainingapp.core.database.entity.WorkoutExerciseEntity
 import ru.trainingapp.core.database.entity.WorkoutExerciseSetEntity
@@ -31,6 +33,7 @@ class RoomWorkoutRepository @Inject constructor(
     private val workoutDao: WorkoutDao,
     private val workoutExerciseDao: WorkoutExerciseDao,
     private val workoutExerciseSetDao: WorkoutExerciseSetDao,
+    private val pendingWorkoutChangeDao: PendingWorkoutChangeDao,
 ) : WorkoutRepository {
 
     override fun observeWorkouts(): Flow<List<Workout>> {
@@ -342,6 +345,121 @@ class RoomWorkoutRepository @Inject constructor(
         )
     }
 
+    private suspend fun trackPendingWorkoutChanges(
+        currentSetEntity: WorkoutExerciseSetEntity,
+        updatedSetEntity: WorkoutExerciseSetEntity,
+        workoutExercise: WorkoutExerciseEntity,
+        changedAt: Long,
+    ) {
+        recordPendingWorkoutChange(
+            workoutId = workoutExercise.workoutId,
+            workoutExerciseId = workoutExercise.id,
+            workoutExerciseSetId = currentSetEntity.id,
+            fieldName = FIELD_REPS,
+            oldValue = currentSetEntity.reps.toString(),
+            newValue = updatedSetEntity.reps.toString(),
+            changedAt = changedAt,
+        )
+
+        recordPendingWorkoutChange(
+            workoutId = workoutExercise.workoutId,
+            workoutExerciseId = workoutExercise.id,
+            workoutExerciseSetId = currentSetEntity.id,
+            fieldName = FIELD_LOAD_TYPE,
+            oldValue = currentSetEntity.loadType.name,
+            newValue = updatedSetEntity.loadType.name,
+            changedAt = changedAt,
+        )
+
+        recordPendingWorkoutChange(
+            workoutId = workoutExercise.workoutId,
+            workoutExerciseId = workoutExercise.id,
+            workoutExerciseSetId = currentSetEntity.id,
+            fieldName = FIELD_WEIGHT_VALUE,
+            oldValue = currentSetEntity.weightValue?.toString(),
+            newValue = updatedSetEntity.weightValue?.toString(),
+            changedAt = changedAt,
+        )
+
+        recordPendingWorkoutChange(
+            workoutId = workoutExercise.workoutId,
+            workoutExerciseId = workoutExercise.id,
+            workoutExerciseSetId = currentSetEntity.id,
+            fieldName = FIELD_WEIGHT_UNIT,
+            oldValue = currentSetEntity.weightUnit?.name,
+            newValue = updatedSetEntity.weightUnit?.name,
+            changedAt = changedAt,
+        )
+
+        recordPendingWorkoutChange(
+            workoutId = workoutExercise.workoutId,
+            workoutExerciseId = workoutExercise.id,
+            workoutExerciseSetId = currentSetEntity.id,
+            fieldName = FIELD_DURATION_SECONDS,
+            oldValue = currentSetEntity.durationSeconds?.toString(),
+            newValue = updatedSetEntity.durationSeconds?.toString(),
+            changedAt = changedAt,
+        )
+    }
+
+    private suspend fun recordPendingWorkoutChange(
+        workoutId: Long,
+        workoutExerciseId: Long,
+        workoutExerciseSetId: Long,
+        fieldName: String,
+        oldValue: String?,
+        newValue: String?,
+        changedAt: Long,
+    ) {
+        if (oldValue == newValue) {
+            return
+        }
+
+        val existingChange = pendingWorkoutChangeDao.findPendingChange(
+            workoutExerciseId = workoutExerciseId,
+            workoutExerciseSetId = workoutExerciseSetId,
+            fieldName = fieldName,
+        )
+
+        if (existingChange == null) {
+            pendingWorkoutChangeDao.insertPendingChange(
+                PendingWorkoutChangeEntity(
+                    workoutId = workoutId,
+                    workoutExerciseId = workoutExerciseId,
+                    workoutExerciseSetId = workoutExerciseSetId,
+                    fieldName = fieldName,
+                    oldValue = oldValue,
+                    newValue = newValue,
+                    firstChangedAt = changedAt,
+                    lastChangedAt = changedAt,
+                )
+            )
+
+            return
+        }
+
+        if (existingChange.oldValue == newValue) {
+            pendingWorkoutChangeDao.deletePendingChangeById(existingChange.id)
+            return
+        }
+
+        pendingWorkoutChangeDao.updatePendingChangeNewValue(
+            id = existingChange.id,
+            newValue = newValue,
+            lastChangedAt = changedAt,
+        )
+    }
+
+    private fun WorkoutExerciseSetEntity.hasTrackedValueChanges(
+        updatedEntity: WorkoutExerciseSetEntity,
+    ): Boolean {
+        return reps != updatedEntity.reps ||
+                loadType != updatedEntity.loadType ||
+                weightValue != updatedEntity.weightValue ||
+                weightUnit != updatedEntity.weightUnit ||
+                durationSeconds != updatedEntity.durationSeconds
+    }
+
     private enum class MoveDirection {
         UP,
         DOWN,
@@ -375,9 +493,20 @@ class RoomWorkoutRepository @Inject constructor(
                 updatedAt = now,
             )
 
-            workoutExerciseSetDao.updateSet(
-                updatedSet.toEntity(),
+            val updatedSetEntity = updatedSet.toEntity()
+
+            if (!currentSetEntity.hasTrackedValueChanges(updatedSetEntity)) {
+                return@withTransaction
+            }
+
+            trackPendingWorkoutChanges(
+                currentSetEntity = currentSetEntity,
+                updatedSetEntity = updatedSetEntity,
+                workoutExercise = workoutExercise,
+                changedAt = now,
             )
+
+            workoutExerciseSetDao.updateSet(updatedSetEntity)
 
             workoutExerciseDao.updateWorkoutExercise(
                 workoutExercise.copy(
@@ -432,5 +561,13 @@ class RoomWorkoutRepository @Inject constructor(
                 updatedAt = now,
             )
         }
+    }
+
+    private companion object {
+        const val FIELD_REPS = "reps"
+        const val FIELD_LOAD_TYPE = "loadType"
+        const val FIELD_WEIGHT_VALUE = "weightValue"
+        const val FIELD_WEIGHT_UNIT = "weightUnit"
+        const val FIELD_DURATION_SECONDS = "durationSeconds"
     }
 }
