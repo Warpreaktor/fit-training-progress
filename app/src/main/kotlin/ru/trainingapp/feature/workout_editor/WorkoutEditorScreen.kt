@@ -59,6 +59,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.foundation.layout.width
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.OutlinedTextField
@@ -67,6 +68,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.semantics.Role.Companion.Checkbox
 import androidx.compose.ui.unit.dp
 import ru.trainingapp.core.model.WeightUnit
 import ru.trainingapp.core.model.ExerciseDefinition
@@ -114,6 +116,7 @@ private fun WorkoutEditorScreen(
     Scaffold(
         topBar = {
             TopAppBar(
+
                 title = {
                     Text(
                         text = uiState.title.ifBlank { "Тренировка" },
@@ -121,6 +124,7 @@ private fun WorkoutEditorScreen(
                         overflow = TextOverflow.Ellipsis,
                     )
                 },
+
                 navigationIcon = {
                     IconButton(
                         onClick = onBack,
@@ -129,6 +133,17 @@ private fun WorkoutEditorScreen(
                             imageVector = Icons.AutoMirrored.Default.ArrowBack,
                             contentDescription = "Назад",
                         )
+                    }
+                },
+
+                actions = {
+                    TextButton(
+                        onClick = {
+                            onAction(WorkoutEditorAction.ResetCheckmarksClick)
+                        },
+                        enabled = uiState.exercises.any { exercise -> exercise.isChecked },
+                    ) {
+                        Text("Снять галки")
                     }
                 },
             )
@@ -292,6 +307,18 @@ private fun WorkoutExerciseCard(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
+                Checkbox(
+                    checked = exercise.isChecked,
+                    onCheckedChange = { isChecked ->
+                        onAction(
+                            WorkoutEditorAction.ExerciseCheckedChanged(
+                                workoutExerciseId = exercise.id,
+                                isChecked = isChecked,
+                            )
+                        )
+                    },
+                )
+
                 Column(
                     modifier = Modifier.weight(1f),
                 ) {

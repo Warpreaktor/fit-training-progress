@@ -391,4 +391,46 @@ class RoomWorkoutRepository @Inject constructor(
             )
         }
     }
+
+    override suspend fun updateWorkoutExerciseChecked(
+        workoutExerciseId: Long,
+        isChecked: Boolean,
+    ) {
+        val now = System.currentTimeMillis()
+
+        database.withTransaction {
+            val workoutExercise = workoutExerciseDao.getWorkoutExerciseById(workoutExerciseId)
+                ?: return@withTransaction
+
+            workoutExerciseDao.updateCheckedState(
+                id = workoutExerciseId,
+                isChecked = isChecked,
+                checkedAt = if (isChecked) now else null,
+                updatedAt = now,
+            )
+
+            workoutDao.touchWorkout(
+                id = workoutExercise.workoutId,
+                updatedAt = now,
+            )
+        }
+    }
+
+    override suspend fun resetWorkoutCheckmarks(
+        workoutId: Long,
+    ) {
+        val now = System.currentTimeMillis()
+
+        database.withTransaction {
+            workoutExerciseDao.resetWorkoutCheckmarks(
+                workoutId = workoutId,
+                updatedAt = now,
+            )
+
+            workoutDao.touchWorkout(
+                id = workoutId,
+                updatedAt = now,
+            )
+        }
+    }
 }

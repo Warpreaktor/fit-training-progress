@@ -59,4 +59,11 @@ sealed interface WorkoutEditorAction {
         val workoutExerciseSetId: Long,
         val value: String,
     ) : WorkoutEditorAction
+
+    data class ExerciseCheckedChanged(
+        val workoutExerciseId: Long,
+        val isChecked: Boolean,
+    ) : WorkoutEditorAction
+
+    data object ResetCheckmarksClick : WorkoutEditorAction
 }

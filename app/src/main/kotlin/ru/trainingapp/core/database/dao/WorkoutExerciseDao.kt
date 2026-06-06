@@ -68,7 +68,7 @@ interface WorkoutExerciseDao {
         """
     )
     suspend fun updateCheckedState(
-        id: String,
+        id: Long,
         isChecked: Boolean,
         checkedAt: Long?,
         updatedAt: Long
@@ -85,7 +85,7 @@ interface WorkoutExerciseDao {
         """
     )
     suspend fun resetWorkoutCheckmarks(
-        workoutId: String,
+        workoutId: Long,
         updatedAt: Long
     )
 

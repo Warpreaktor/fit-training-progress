@@ -19,12 +19,11 @@ import ru.trainingapp.core.domain.workout.ArchiveWorkoutExerciseUseCase
 import ru.trainingapp.core.domain.workout.MoveWorkoutExerciseUseCase
 import ru.trainingapp.core.domain.workout.ObserveWorkoutEditorUseCase
 import ru.trainingapp.core.domain.workout.RemoveWorkoutExerciseSetUseCase
+import ru.trainingapp.core.domain.workout.ResetWorkoutCheckmarksUseCase
+import ru.trainingapp.core.domain.workout.ToggleWorkoutExerciseCheckedUseCase
 import ru.trainingapp.core.domain.workout.UpdateWorkoutExerciseSetUseCase
 import ru.trainingapp.core.model.WeightUnit
 import ru.trainingapp.core.model.WorkoutExerciseSetLoadType
-import androidx.lifecycle.viewModelScope
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.flow.update
 
 @HiltViewModel
 class WorkoutEditorViewModel @Inject constructor(
@@ -37,6 +36,8 @@ class WorkoutEditorViewModel @Inject constructor(
     private val removeWorkoutExerciseSetUseCase: RemoveWorkoutExerciseSetUseCase,
     private val moveWorkoutExerciseUseCase: MoveWorkoutExerciseUseCase,
     private val updateWorkoutExerciseSetUseCase: UpdateWorkoutExerciseSetUseCase,
+    private val toggleWorkoutExerciseCheckedUseCase: ToggleWorkoutExerciseCheckedUseCase,
+    private val resetWorkoutCheckmarksUseCase: ResetWorkoutCheckmarksUseCase,
 ) : ViewModel() {
 
     private val workoutId: Long = requireNotNull(
@@ -159,6 +160,23 @@ class WorkoutEditorViewModel @Inject constructor(
                 )
             }
 
+            is WorkoutEditorAction.ExerciseCheckedChanged -> {
+                updateExerciseChecked(
+                    workoutExerciseId = action.workoutExerciseId,
+                    isChecked = action.isChecked,
+                )
+            }
+
+            WorkoutEditorAction.ResetCheckmarksClick -> {
+                resetWorkoutCheckmarks()
+            }
+
+        }
+    }
+
+    private fun resetWorkoutCheckmarks() {
+        launchOperation {
+            resetWorkoutCheckmarksUseCase(workoutId)
         }
     }
 
@@ -321,46 +339,58 @@ class WorkoutEditorViewModel @Inject constructor(
             )
         }
     }
-}
 
-private sealed interface ParsedNumber<out T> {
+    private sealed interface ParsedNumber<out T> {
 
-    data object Invalid : ParsedNumber<Nothing>
+        data object Invalid : ParsedNumber<Nothing>
 
-    data class Valid<T>(
-        val value: T?,
-    ) : ParsedNumber<T>
-}
-
-private fun String.isDigitsOnlyOrBlank(): Boolean {
-    return all { character -> character.isDigit() }
-}
-
-private fun String.isDecimalDraft(): Boolean {
-    return isEmpty() || matches(Regex("""\d*([.,]\d*)?"""))
-}
-
-private fun String.parseNullableInt(): ParsedNumber<Int> {
-    if (isBlank()) {
-        return ParsedNumber.Valid(null)
+        data class Valid<T>(
+            val value: T?,
+        ) : ParsedNumber<T>
     }
 
-    return toIntOrNull()
-        ?.let { value -> ParsedNumber.Valid(value) }
-        ?: ParsedNumber.Invalid
-}
-
-private fun String.parseNullableDouble(): ParsedNumber<Double> {
-    if (isBlank()) {
-        return ParsedNumber.Valid(null)
+    private fun String.isDigitsOnlyOrBlank(): Boolean {
+        return all { character -> character.isDigit() }
     }
 
-    if (endsWith('.') || endsWith(',')) {
-        return ParsedNumber.Invalid
+    private fun String.isDecimalDraft(): Boolean {
+        return isEmpty() || matches(Regex("""\d*([.,]\d*)?"""))
     }
 
-    return replace(',', '.')
-        .toDoubleOrNull()
-        ?.let { value -> ParsedNumber.Valid(value) }
-        ?: ParsedNumber.Invalid
+    private fun String.parseNullableInt(): ParsedNumber<Int> {
+        if (isBlank()) {
+            return ParsedNumber.Valid(null)
+        }
+
+        return toIntOrNull()
+            ?.let { value -> ParsedNumber.Valid(value) }
+            ?: ParsedNumber.Invalid
+    }
+
+    private fun String.parseNullableDouble(): ParsedNumber<Double> {
+        if (isBlank()) {
+            return ParsedNumber.Valid(null)
+        }
+
+        if (endsWith('.') || endsWith(',')) {
+            return ParsedNumber.Invalid
+        }
+
+        return replace(',', '.')
+            .toDoubleOrNull()
+            ?.let { value -> ParsedNumber.Valid(value) }
+            ?: ParsedNumber.Invalid
+    }
+
+    private fun updateExerciseChecked(
+        workoutExerciseId: Long,
+        isChecked: Boolean,
+    ) {
+        launchOperation {
+            toggleWorkoutExerciseCheckedUseCase(
+                workoutExerciseId = workoutExerciseId,
+                isChecked = isChecked,
+            )
+        }
+    }
 }

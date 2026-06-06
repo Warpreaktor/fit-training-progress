@@ -56,4 +56,13 @@ interface WorkoutRepository {
         workoutId: Long,
         workoutExerciseId: Long,
     )
+
+    suspend fun updateWorkoutExerciseChecked(
+        workoutExerciseId: Long,
+        isChecked: Boolean,
+    )
+
+    suspend fun resetWorkoutCheckmarks(
+        workoutId: Long,
+    )
 }
