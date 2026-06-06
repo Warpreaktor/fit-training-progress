@@ -12,38 +12,37 @@ import androidx.room.PrimaryKey
             entity = WorkoutEntity::class,
             parentColumns = ["id"],
             childColumns = ["workoutId"],
-            onDelete = ForeignKey.CASCADE
+            onDelete = ForeignKey.CASCADE,
         ),
         ForeignKey(
             entity = WorkoutExerciseEntity::class,
             parentColumns = ["id"],
             childColumns = ["workoutExerciseId"],
-            onDelete = ForeignKey.CASCADE
+            onDelete = ForeignKey.CASCADE,
         ),
         ForeignKey(
             entity = ExerciseDefinitionEntity::class,
             parentColumns = ["id"],
             childColumns = ["exerciseDefinitionId"],
-            onDelete = ForeignKey.NO_ACTION
-        )
+            onDelete = ForeignKey.NO_ACTION,
+        ),
     ],
     indices = [
         Index(value = ["workoutId"]),
         Index(value = ["workoutExerciseId"]),
         Index(value = ["exerciseDefinitionId"]),
         Index(value = ["workoutExerciseId", "revision"], unique = true),
-        Index(value = ["workoutExerciseId", "createdAt"])
-    ]
+        Index(value = ["workoutExerciseId", "createdAt"]),
+    ],
 )
 data class WorkoutExerciseProgressPointEntity(
-
-    @PrimaryKey
-    val id: String,
-    val workoutId: String,
-    val workoutExerciseId: String,
-    val exerciseDefinitionId: String,
+    @PrimaryKey(autoGenerate = true)
+    val id: Long = 0L,
+    val workoutId: Long,
+    val workoutExerciseId: Long,
+    val exerciseDefinitionId: Long,
     val exerciseNameSnapshot: String,
     val createdAt: Long,
     val revision: Int,
-    val reason: String
+    val reason: String,
 )

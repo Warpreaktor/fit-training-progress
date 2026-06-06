@@ -17,6 +17,7 @@ import ru.trainingapp.core.domain.exercise.ObserveExerciseDefinitionsUseCase
 import ru.trainingapp.core.domain.workout.AddExerciseToWorkoutUseCase
 import ru.trainingapp.core.domain.workout.AddWorkoutExerciseSetUseCase
 import ru.trainingapp.core.domain.workout.ArchiveWorkoutExerciseUseCase
+import ru.trainingapp.core.domain.workout.CommitPendingProgressUseCase
 import ru.trainingapp.core.domain.workout.MoveWorkoutExerciseUseCase
 import ru.trainingapp.core.domain.workout.ObserveWorkoutEditorUseCase
 import ru.trainingapp.core.domain.workout.RemoveWorkoutExerciseSetUseCase
@@ -39,6 +40,7 @@ class WorkoutEditorViewModel @Inject constructor(
     private val updateWorkoutExerciseSetUseCase: UpdateWorkoutExerciseSetUseCase,
     private val toggleWorkoutExerciseCheckedUseCase: ToggleWorkoutExerciseCheckedUseCase,
     private val resetWorkoutCheckmarksUseCase: ResetWorkoutCheckmarksUseCase,
+    private val commitPendingProgressUseCase: CommitPendingProgressUseCase,
 ) : ViewModel() {
 
     private val workoutId: Long = requireNotNull(
@@ -172,6 +174,26 @@ class WorkoutEditorViewModel @Inject constructor(
                 resetWorkoutCheckmarks()
             }
 
+        }
+    }
+
+    fun commitPendingProgress() {
+        launchOperation {
+            commitPendingProgressUseCase(workoutId)
+        }
+    }
+
+    fun commitPendingProgressAndThen(
+        onComplete: () -> Unit,
+    ) {
+        viewModelScope.launch {
+            try {
+                commitPendingProgressUseCase(workoutId)
+                onComplete()
+            } catch (exception: Exception) {
+                errorMessage.value = exception.message
+                    ?: "Не удалось зафиксировать прогресс"
+            }
         }
     }
 

@@ -23,9 +23,9 @@ import ru.trainingapp.core.model.WorkoutExerciseSetLoadType
     ],
 )
 data class WorkoutExerciseProgressSetEntity(
-    @PrimaryKey
-    val id: String,
-    val progressPointId: String,
+    @PrimaryKey(autoGenerate = true)
+    val id: Long = 0L,
+    val progressPointId: Long,
     val setNumber: Int,
     val reps: Int,
     val loadType: WorkoutExerciseSetLoadType,

@@ -21,7 +21,7 @@ interface ProgressDao {
         """
     )
     fun observeProgressPointsByWorkoutExerciseId(
-        workoutExerciseId: String
+        workoutExerciseId: Long,
     ): Flow<List<WorkoutExerciseProgressPointEntity>>
 
     @Transaction
@@ -34,7 +34,7 @@ interface ProgressDao {
         """
     )
     fun observeProgressPointsWithSetsByWorkoutExerciseId(
-        workoutExerciseId: String
+        workoutExerciseId: Long,
     ): Flow<List<WorkoutExerciseProgressPointWithSetsDbModel>>
 
     @Query(
@@ -46,7 +46,7 @@ interface ProgressDao {
         """
     )
     fun observeProgressPointsByWorkoutId(
-        workoutId: String
+        workoutId: Long,
     ): Flow<List<WorkoutExerciseProgressPointEntity>>
 
     @Query(
@@ -58,7 +58,7 @@ interface ProgressDao {
         """
     )
     suspend fun getProgressPointsByWorkoutExerciseId(
-        workoutExerciseId: String
+        workoutExerciseId: Long,
     ): List<WorkoutExerciseProgressPointEntity>
 
     @Query(
@@ -68,13 +68,19 @@ interface ProgressDao {
         WHERE workoutExerciseId = :workoutExerciseId
         """
     )
-    suspend fun getNextRevision(workoutExerciseId: String): Int
+    suspend fun getNextRevision(
+        workoutExerciseId: Long,
+    ): Int
 
     @Insert
-    suspend fun insertProgressPoint(entity: WorkoutExerciseProgressPointEntity)
+    suspend fun insertProgressPoint(
+        entity: WorkoutExerciseProgressPointEntity,
+    ): Long
 
     @Insert
-    suspend fun insertProgressSets(entities: List<WorkoutExerciseProgressSetEntity>)
+    suspend fun insertProgressSets(
+        entities: List<WorkoutExerciseProgressSetEntity>,
+    )
 
     @Query(
         """
@@ -82,5 +88,7 @@ interface ProgressDao {
         WHERE id = :progressPointId
         """
     )
-    suspend fun deleteProgressPoint(progressPointId: String)
+    suspend fun deleteProgressPoint(
+        progressPointId: Long,
+    )
 }

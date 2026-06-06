@@ -1,5 +1,6 @@
 package ru.trainingapp.feature.workout_editor
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -64,12 +65,16 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.semantics.Role.Companion.Checkbox
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import ru.trainingapp.core.model.WeightUnit
 import ru.trainingapp.core.model.ExerciseDefinition
 import ru.trainingapp.core.model.WorkoutExercise
@@ -86,9 +91,27 @@ fun WorkoutEditorRoute(
 ) {
     val uiState by viewModel.uiState.collectAsState()
 
+    val lifecycleOwner = LocalLifecycleOwner.current
+
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_STOP) {
+                viewModel.commitPendingProgress()
+            }
+        }
+
+        lifecycleOwner.lifecycle.addObserver(observer)
+
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
+    }
+
     WorkoutEditorScreen(
         uiState = uiState,
-        onBack = onBack,
+        onBack = {
+            viewModel.commitPendingProgressAndThen(onBack)
+        },
         onAction = viewModel::onAction,
     )
 }
@@ -112,6 +135,10 @@ private fun WorkoutEditorScreen(
 
         onAction(WorkoutEditorAction.ErrorMessageShown)
     }
+
+    BackHandler(
+        onBack = onBack,
+    )
 
     Scaffold(
         topBar = {

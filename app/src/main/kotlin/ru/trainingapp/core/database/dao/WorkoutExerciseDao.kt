@@ -125,4 +125,30 @@ interface WorkoutExerciseDao {
     suspend fun getActiveWorkoutExerciseEntities(
         workoutId: Long,
     ): List<WorkoutExerciseEntity>
+
+    @Query(
+        """
+    SELECT
+        we.id AS id,
+        we.workoutId AS workoutId,
+        we.exerciseDefinitionId AS exerciseDefinitionId,
+        ed.name AS exerciseName,
+        we.sortOrder AS sortOrder,
+        we.comment AS comment,
+        we.isChecked AS isChecked,
+        we.checkedAt AS checkedAt,
+        we.isArchived AS isArchived,
+        we.archivedAt AS archivedAt,
+        we.createdAt AS createdAt,
+        we.updatedAt AS updatedAt
+    FROM workout_exercises we
+    INNER JOIN exercise_definitions ed
+        ON ed.id = we.exerciseDefinitionId
+    WHERE we.id = :id
+    LIMIT 1
+    """
+    )
+    suspend fun getWorkoutExerciseListItemById(
+        id: Long,
+    ): WorkoutExerciseListItemDbModel?
 }

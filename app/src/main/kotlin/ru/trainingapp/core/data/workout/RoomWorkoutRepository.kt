@@ -11,12 +11,15 @@ import ru.trainingapp.core.data.mapper.toDomain
 import ru.trainingapp.core.data.mapper.toEntity
 import ru.trainingapp.core.database.TrainingDatabase
 import ru.trainingapp.core.database.dao.PendingWorkoutChangeDao
+import ru.trainingapp.core.database.dao.ProgressDao
 import ru.trainingapp.core.database.dao.WorkoutDao
 import ru.trainingapp.core.database.dao.WorkoutExerciseDao
 import ru.trainingapp.core.database.dao.WorkoutExerciseSetDao
 import ru.trainingapp.core.database.entity.PendingWorkoutChangeEntity
 import ru.trainingapp.core.database.entity.WorkoutEntity
 import ru.trainingapp.core.database.entity.WorkoutExerciseEntity
+import ru.trainingapp.core.database.entity.WorkoutExerciseProgressPointEntity
+import ru.trainingapp.core.database.entity.WorkoutExerciseProgressSetEntity
 import ru.trainingapp.core.database.entity.WorkoutExerciseSetEntity
 import ru.trainingapp.core.database.model.WorkoutExerciseListItemDbModel
 import ru.trainingapp.core.domain.repository.WorkoutRepository
@@ -34,6 +37,7 @@ class RoomWorkoutRepository @Inject constructor(
     private val workoutExerciseDao: WorkoutExerciseDao,
     private val workoutExerciseSetDao: WorkoutExerciseSetDao,
     private val pendingWorkoutChangeDao: PendingWorkoutChangeDao,
+    private val progressDao: ProgressDao,
 ) : WorkoutRepository {
 
     override fun observeWorkouts(): Flow<List<Workout>> {
@@ -402,69 +406,6 @@ class RoomWorkoutRepository @Inject constructor(
         )
     }
 
-    private suspend fun recordPendingWorkoutChange(
-        workoutId: Long,
-        workoutExerciseId: Long,
-        workoutExerciseSetId: Long,
-        fieldName: String,
-        oldValue: String?,
-        newValue: String?,
-        changedAt: Long,
-    ) {
-        if (oldValue == newValue) {
-            return
-        }
-
-        val existingChange = pendingWorkoutChangeDao.findPendingChange(
-            workoutExerciseId = workoutExerciseId,
-            workoutExerciseSetId = workoutExerciseSetId,
-            fieldName = fieldName,
-        )
-
-        if (existingChange == null) {
-            pendingWorkoutChangeDao.insertPendingChange(
-                PendingWorkoutChangeEntity(
-                    workoutId = workoutId,
-                    workoutExerciseId = workoutExerciseId,
-                    workoutExerciseSetId = workoutExerciseSetId,
-                    fieldName = fieldName,
-                    oldValue = oldValue,
-                    newValue = newValue,
-                    firstChangedAt = changedAt,
-                    lastChangedAt = changedAt,
-                )
-            )
-
-            return
-        }
-
-        if (existingChange.oldValue == newValue) {
-            pendingWorkoutChangeDao.deletePendingChangeById(existingChange.id)
-            return
-        }
-
-        pendingWorkoutChangeDao.updatePendingChangeNewValue(
-            id = existingChange.id,
-            newValue = newValue,
-            lastChangedAt = changedAt,
-        )
-    }
-
-    private fun WorkoutExerciseSetEntity.hasTrackedValueChanges(
-        updatedEntity: WorkoutExerciseSetEntity,
-    ): Boolean {
-        return reps != updatedEntity.reps ||
-                loadType != updatedEntity.loadType ||
-                weightValue != updatedEntity.weightValue ||
-                weightUnit != updatedEntity.weightUnit ||
-                durationSeconds != updatedEntity.durationSeconds
-    }
-
-    private enum class MoveDirection {
-        UP,
-        DOWN,
-    }
-
     override suspend fun getWorkoutExerciseSet(
         workoutExerciseSetId: Long,
     ): WorkoutExerciseSet? {
@@ -563,11 +504,149 @@ class RoomWorkoutRepository @Inject constructor(
         }
     }
 
+    override suspend fun commitPendingProgress(
+        workoutId: Long,
+    ) {
+        val now = System.currentTimeMillis()
+
+        database.withTransaction {
+            val pendingChanges = pendingWorkoutChangeDao.getPendingChangesByWorkoutId(workoutId)
+
+            if (pendingChanges.isEmpty()) {
+                return@withTransaction
+            }
+
+            pendingChanges
+                .groupBy { pendingChange -> pendingChange.workoutExerciseId }
+                .forEach { (workoutExerciseId, _) ->
+                    createProgressPointForWorkoutExercise(
+                        workoutExerciseId = workoutExerciseId,
+                        createdAt = now,
+                    )
+                }
+
+            pendingWorkoutChangeDao.deletePendingChangesByWorkoutId(workoutId)
+        }
+    }
+
+    private suspend fun recordPendingWorkoutChange(
+        workoutId: Long,
+        workoutExerciseId: Long,
+        workoutExerciseSetId: Long,
+        fieldName: String,
+        oldValue: String?,
+        newValue: String?,
+        changedAt: Long,
+    ) {
+        if (oldValue == newValue) {
+            return
+        }
+
+        val existingChange = pendingWorkoutChangeDao.findPendingChange(
+            workoutExerciseId = workoutExerciseId,
+            workoutExerciseSetId = workoutExerciseSetId,
+            fieldName = fieldName,
+        )
+
+        if (existingChange == null) {
+            pendingWorkoutChangeDao.insertPendingChange(
+                PendingWorkoutChangeEntity(
+                    workoutId = workoutId,
+                    workoutExerciseId = workoutExerciseId,
+                    workoutExerciseSetId = workoutExerciseSetId,
+                    fieldName = fieldName,
+                    oldValue = oldValue,
+                    newValue = newValue,
+                    firstChangedAt = changedAt,
+                    lastChangedAt = changedAt,
+                )
+            )
+
+            return
+        }
+
+        if (existingChange.oldValue == newValue) {
+            pendingWorkoutChangeDao.deletePendingChangeById(existingChange.id)
+            return
+        }
+
+        pendingWorkoutChangeDao.updatePendingChangeNewValue(
+            id = existingChange.id,
+            newValue = newValue,
+            lastChangedAt = changedAt,
+        )
+    }
+
+    private fun WorkoutExerciseSetEntity.hasTrackedValueChanges(
+        updatedEntity: WorkoutExerciseSetEntity,
+    ): Boolean {
+        return reps != updatedEntity.reps ||
+                loadType != updatedEntity.loadType ||
+                weightValue != updatedEntity.weightValue ||
+                weightUnit != updatedEntity.weightUnit ||
+                durationSeconds != updatedEntity.durationSeconds
+    }
+
+    private enum class MoveDirection {
+        UP,
+        DOWN,
+    }
+
     private companion object {
         const val FIELD_REPS = "reps"
+
         const val FIELD_LOAD_TYPE = "loadType"
+
         const val FIELD_WEIGHT_VALUE = "weightValue"
+
         const val FIELD_WEIGHT_UNIT = "weightUnit"
+
         const val FIELD_DURATION_SECONDS = "durationSeconds"
+
+        const val PROGRESS_REASON_PENDING_CHANGES = "pending_changes"
+    }
+
+    private suspend fun createProgressPointForWorkoutExercise(
+        workoutExerciseId: Long,
+        createdAt: Long,
+    ) {
+        val workoutExercise = workoutExerciseDao.getWorkoutExerciseListItemById(workoutExerciseId)
+            ?: return
+
+        val currentSets = workoutExerciseSetDao
+            .getSetsByWorkoutExerciseId(workoutExerciseId)
+            .sortedBy { set -> set.setNumber }
+
+        if (currentSets.isEmpty()) {
+            return
+        }
+
+        val revision = progressDao.getNextRevision(workoutExerciseId)
+
+        val progressPointId = progressDao.insertProgressPoint(
+            WorkoutExerciseProgressPointEntity(
+                workoutId = workoutExercise.workoutId,
+                workoutExerciseId = workoutExercise.id,
+                exerciseDefinitionId = workoutExercise.exerciseDefinitionId,
+                exerciseNameSnapshot = workoutExercise.exerciseName,
+                createdAt = createdAt,
+                revision = revision,
+                reason = PROGRESS_REASON_PENDING_CHANGES,
+            )
+        )
+
+        progressDao.insertProgressSets(
+            currentSets.map { set ->
+                WorkoutExerciseProgressSetEntity(
+                    progressPointId = progressPointId,
+                    setNumber = set.setNumber,
+                    reps = set.reps,
+                    loadType = set.loadType,
+                    weightValue = set.weightValue,
+                    weightUnit = set.weightUnit,
+                    durationSeconds = set.durationSeconds,
+                )
+            }
+        )
     }
 }

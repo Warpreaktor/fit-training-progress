@@ -65,4 +65,8 @@ interface WorkoutRepository {
     suspend fun resetWorkoutCheckmarks(
         workoutId: Long,
     )
+
+    suspend fun commitPendingProgress(
+        workoutId: Long,
+    )
 }
