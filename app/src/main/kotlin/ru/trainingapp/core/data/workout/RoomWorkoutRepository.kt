@@ -752,4 +752,14 @@ class RoomWorkoutRepository @Inject constructor(
             endMillis = calendar.timeInMillis,
         )
     }
+
+    override fun observeWorkoutProgress(
+        workoutId: Long,
+    ): Flow<List<WorkoutExerciseProgressPoint>> {
+        return progressDao
+            .observeProgressPointsWithSetsByWorkoutId(workoutId)
+            .map { points ->
+                points.map { point -> point.toDomain() }
+            }
+    }
 }

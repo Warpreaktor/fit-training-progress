@@ -37,7 +37,7 @@ import ru.trainingapp.core.ui.component.EmptyState
 fun WorkoutListRoute(
     onOpenWorkout: (Long) -> Unit,
     onOpenExerciseCatalog: () -> Unit,
-    onOpenProgress: () -> Unit,
+    onOpenWorkoutProgress: (Long) -> Unit,
     onOpenSettings: () -> Unit,
     viewModel: WorkoutListViewModel = hiltViewModel(),
 ) {
@@ -47,7 +47,7 @@ fun WorkoutListRoute(
         uiState = uiState,
         onOpenWorkout = onOpenWorkout,
         onOpenExerciseCatalog = onOpenExerciseCatalog,
-        onOpenProgress = onOpenProgress,
+        onOpenWorkoutProgress = onOpenWorkoutProgress,
         onOpenSettings = onOpenSettings,
         onCreateWorkoutClick = viewModel::onCreateWorkoutClick,
         onArchiveWorkoutClick = viewModel::onArchiveWorkoutClick,
@@ -64,7 +64,7 @@ fun WorkoutListScreen(
     uiState: WorkoutListUiState,
     onOpenWorkout: (Long) -> Unit,
     onOpenExerciseCatalog: () -> Unit,
-    onOpenProgress: () -> Unit,
+    onOpenWorkoutProgress: (Long) -> Unit,
     onOpenSettings: () -> Unit,
     onCreateWorkoutClick: () -> Unit,
     onArchiveWorkoutClick: (Long) -> Unit,
@@ -97,12 +97,8 @@ fun WorkoutListScreen(
                     Text("Упражнения")
                 }
 
-                Button(onClick = onOpenProgress) {
-                    Text("Прогресс")
-                }
-
                 Button(onClick = onOpenSettings) {
-                    Text("Настройки")
+                    Text("#")
                 }
             }
 
@@ -122,6 +118,7 @@ fun WorkoutListScreen(
                         WorkoutCard(
                             workout = workout,
                             onOpenClick = { onOpenWorkout(workout.id) },
+                            onProgressClick = { onOpenWorkoutProgress(workout.id) },
                             onArchiveClick = { onArchiveWorkoutClick(workout.id) },
                         )
                     }
@@ -145,6 +142,7 @@ fun WorkoutListScreen(
 private fun WorkoutCard(
     workout: Workout,
     onOpenClick: () -> Unit,
+    onProgressClick: () -> Unit,
     onArchiveClick: () -> Unit,
 ) {
     Card(
@@ -189,6 +187,12 @@ private fun WorkoutCard(
             ) {
                 TextButton(onClick = onArchiveClick) {
                     Text("Архивировать")
+                }
+
+                Spacer(modifier = Modifier.width(8.dp))
+
+                TextButton(onClick = onProgressClick) {
+                    Text("Прогресс")
                 }
 
                 Spacer(modifier = Modifier.width(8.dp))

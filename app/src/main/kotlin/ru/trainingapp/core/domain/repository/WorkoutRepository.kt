@@ -74,4 +74,8 @@ interface WorkoutRepository {
     fun observeWorkoutExerciseProgress(
         workoutExerciseId: Long,
     ): Flow<List<WorkoutExerciseProgressPoint>>
+
+    fun observeWorkoutProgress(
+        workoutId: Long,
+    ): Flow<List<WorkoutExerciseProgressPoint>>
 }

@@ -137,4 +137,17 @@ interface ProgressDao {
     suspend fun deleteProgressPoint(
         progressPointId: Long,
     )
+
+    @Transaction
+    @Query(
+        """
+    SELECT *
+    FROM workout_exercise_progress_points
+    WHERE workoutId = :workoutId
+    ORDER BY createdAt ASC, revision ASC
+    """
+    )
+    fun observeProgressPointsWithSetsByWorkoutId(
+        workoutId: Long,
+    ): Flow<List<WorkoutExerciseProgressPointWithSetsDbModel>>
 }
