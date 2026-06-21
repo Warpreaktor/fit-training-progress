@@ -87,6 +87,7 @@ import kotlin.collections.indexOfFirst
 fun WorkoutEditorRoute(
     workoutId: Long,
     onBack: () -> Unit,
+    onOpenExerciseProgress: (Long) -> Unit,
     viewModel: WorkoutEditorViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -112,6 +113,11 @@ fun WorkoutEditorRoute(
         onBack = {
             viewModel.commitPendingProgressAndThen(onBack)
         },
+        onOpenExerciseProgress = { workoutExerciseId ->
+            viewModel.commitPendingProgressAndThen {
+                onOpenExerciseProgress(workoutExerciseId)
+            }
+        },
         onAction = viewModel::onAction,
     )
 }
@@ -121,6 +127,7 @@ fun WorkoutEditorRoute(
 private fun WorkoutEditorScreen(
     uiState: WorkoutEditorUiState,
     onBack: () -> Unit,
+    onOpenExerciseProgress: (Long) -> Unit,
     onAction: (WorkoutEditorAction) -> Unit,
 ) {
     val snackbarHostState = remember { SnackbarHostState() }
@@ -216,6 +223,7 @@ private fun WorkoutEditorScreen(
                 else -> {
                     WorkoutExerciseList(
                         exercises = uiState.exercises,
+                        onOpenExerciseProgress = onOpenExerciseProgress,
                         onAction = onAction,
                     )
                 }
@@ -243,6 +251,7 @@ private fun WorkoutEditorScreen(
 @Composable
 private fun WorkoutExerciseList(
     exercises: List<WorkoutExerciseUi>,
+    onOpenExerciseProgress: (Long) -> Unit,
     onAction: (WorkoutEditorAction) -> Unit,
 ) {
     LazyColumn(
@@ -272,6 +281,11 @@ private fun WorkoutExerciseList(
                         )
                     )
                 },
+
+                onOpenProgressClick = {
+                    onOpenExerciseProgress(exercise.id)
+                },
+
                 onMoveDownClick = {
                     onAction(
                         WorkoutEditorAction.MoveExerciseDownClick(
@@ -315,6 +329,7 @@ private fun WorkoutExerciseCard(
     onMoveDownClick: () -> Unit,
     onArchiveClick: () -> Unit,
     onAddSetClick: () -> Unit,
+    onOpenProgressClick: () -> Unit,
     onRemoveSetClick: (Long) -> Unit,
     onAction: (WorkoutEditorAction) -> Unit,
 ) {
@@ -410,19 +425,31 @@ private fun WorkoutExerciseCard(
                 }
             }
 
-            TextButton(
-                onClick = onAddSetClick,
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
             ) {
-                Icon(
-                    imageVector = Icons.Default.Add,
-                    contentDescription = null,
-                    modifier = Modifier.size(18.dp),
-                )
+                TextButton(
+                    onClick = onAddSetClick,
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Add,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp),
+                    )
 
-                Text(
-                    text = "Добавить подход",
-                    modifier = Modifier.padding(start = 8.dp),
-                )
+                    Text(
+                        text = "Добавить подход",
+                        modifier = Modifier.padding(start = 8.dp),
+                    )
+                }
+
+                TextButton(
+                    onClick = onOpenProgressClick,
+                ) {
+                    Text("Прогресс")
+                }
             }
         }
     }

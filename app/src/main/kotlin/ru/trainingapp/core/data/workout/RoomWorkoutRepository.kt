@@ -1,6 +1,7 @@
 package ru.trainingapp.core.data.workout
 
 import androidx.room.withTransaction
+import java.util.Calendar
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
@@ -27,6 +28,7 @@ import ru.trainingapp.core.model.WeightUnit
 import ru.trainingapp.core.model.Workout
 import ru.trainingapp.core.model.WorkoutEditorData
 import ru.trainingapp.core.model.WorkoutExercise
+import ru.trainingapp.core.model.WorkoutExerciseProgressPoint
 import ru.trainingapp.core.model.WorkoutExerciseSet
 import ru.trainingapp.core.model.WorkoutExerciseSetLoadType
 import javax.inject.Inject
@@ -519,7 +521,7 @@ class RoomWorkoutRepository @Inject constructor(
             pendingChanges
                 .groupBy { pendingChange -> pendingChange.workoutExerciseId }
                 .forEach { (workoutExerciseId, _) ->
-                    createProgressPointForWorkoutExercise(
+                    saveDailyProgressPointForWorkoutExercise(
                         workoutExerciseId = workoutExerciseId,
                         createdAt = now,
                     )
@@ -527,6 +529,16 @@ class RoomWorkoutRepository @Inject constructor(
 
             pendingWorkoutChangeDao.deletePendingChangesByWorkoutId(workoutId)
         }
+    }
+
+    override fun observeWorkoutExerciseProgress(
+        workoutExerciseId: Long,
+    ): Flow<List<WorkoutExerciseProgressPoint>> {
+        return progressDao
+            .observeProgressPointsWithSetsByWorkoutExerciseId(workoutExerciseId)
+            .map { points ->
+                points.map { point -> point.toDomain() }
+            }
     }
 
     private suspend fun recordPendingWorkoutChange(
@@ -587,6 +599,11 @@ class RoomWorkoutRepository @Inject constructor(
                 durationSeconds != updatedEntity.durationSeconds
     }
 
+    private data class DayRange(
+        val startMillis: Long,
+        val endMillis: Long,
+    )
+
     private enum class MoveDirection {
         UP,
         DOWN,
@@ -606,7 +623,7 @@ class RoomWorkoutRepository @Inject constructor(
         const val PROGRESS_REASON_PENDING_CHANGES = "pending_changes"
     }
 
-    private suspend fun createProgressPointForWorkoutExercise(
+    private suspend fun saveDailyProgressPointForWorkoutExercise(
         workoutExerciseId: Long,
         createdAt: Long,
     ) {
@@ -621,7 +638,42 @@ class RoomWorkoutRepository @Inject constructor(
             return
         }
 
-        val revision = progressDao.getNextRevision(workoutExerciseId)
+        val dayRange = createdAt.toLocalDayRange()
+        val existingProgressPoints = progressDao.getProgressPointsByWorkoutExerciseIdAndDay(
+            workoutExerciseId = workoutExerciseId,
+            dayStartMillis = dayRange.startMillis,
+            dayEndMillis = dayRange.endMillis,
+        )
+        val progressPointId = existingProgressPoints.firstOrNull()?.id
+
+        if (progressPointId == null) {
+            createDailyProgressPoint(
+                workoutExercise = workoutExercise,
+                currentSets = currentSets,
+                createdAt = createdAt,
+            )
+        } else {
+            replaceDailyProgressPointSnapshot(
+                progressPointId = progressPointId,
+                workoutExercise = workoutExercise,
+                currentSets = currentSets,
+                createdAt = createdAt,
+            )
+
+            existingProgressPoints
+                .drop(1)
+                .forEach { progressPoint ->
+                    progressDao.deleteProgressPoint(progressPoint.id)
+                }
+        }
+    }
+
+    private suspend fun createDailyProgressPoint(
+        workoutExercise: WorkoutExerciseListItemDbModel,
+        currentSets: List<WorkoutExerciseSetEntity>,
+        createdAt: Long,
+    ) {
+        val revision = progressDao.getNextRevision(workoutExercise.id)
 
         val progressPointId = progressDao.insertProgressPoint(
             WorkoutExerciseProgressPointEntity(
@@ -635,6 +687,39 @@ class RoomWorkoutRepository @Inject constructor(
             )
         )
 
+        insertProgressSetSnapshots(
+            progressPointId = progressPointId,
+            currentSets = currentSets,
+        )
+    }
+
+    private suspend fun replaceDailyProgressPointSnapshot(
+        progressPointId: Long,
+        workoutExercise: WorkoutExerciseListItemDbModel,
+        currentSets: List<WorkoutExerciseSetEntity>,
+        createdAt: Long,
+    ) {
+        progressDao.updateProgressPointSnapshot(
+            progressPointId = progressPointId,
+            workoutId = workoutExercise.workoutId,
+            exerciseDefinitionId = workoutExercise.exerciseDefinitionId,
+            exerciseNameSnapshot = workoutExercise.exerciseName,
+            createdAt = createdAt,
+            reason = PROGRESS_REASON_PENDING_CHANGES,
+        )
+
+        progressDao.deleteProgressSetsByProgressPointId(progressPointId)
+
+        insertProgressSetSnapshots(
+            progressPointId = progressPointId,
+            currentSets = currentSets,
+        )
+    }
+
+    private suspend fun insertProgressSetSnapshots(
+        progressPointId: Long,
+        currentSets: List<WorkoutExerciseSetEntity>,
+    ) {
         progressDao.insertProgressSets(
             currentSets.map { set ->
                 WorkoutExerciseProgressSetEntity(
@@ -647,6 +732,24 @@ class RoomWorkoutRepository @Inject constructor(
                     durationSeconds = set.durationSeconds,
                 )
             }
+        )
+    }
+
+    private fun Long.toLocalDayRange(): DayRange {
+        val calendar = Calendar.getInstance().apply {
+            timeInMillis = this@toLocalDayRange
+            set(Calendar.HOUR_OF_DAY, 0)
+            set(Calendar.MINUTE, 0)
+            set(Calendar.SECOND, 0)
+            set(Calendar.MILLISECOND, 0)
+        }
+
+        val startMillis = calendar.timeInMillis
+        calendar.add(Calendar.DAY_OF_YEAR, 1)
+
+        return DayRange(
+            startMillis = startMillis,
+            endMillis = calendar.timeInMillis,
         )
     }
 }

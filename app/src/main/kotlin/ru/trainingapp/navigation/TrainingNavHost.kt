@@ -52,6 +52,11 @@ fun TrainingNavHost(
             WorkoutEditorRoute(
                 workoutId = workoutId,
                 onBack = { navController.popBackStack() },
+                onOpenExerciseProgress = { workoutExerciseId ->
+                    navController.navigate(
+                        AppRoute.ExerciseProgress.createRoute(workoutExerciseId)
+                    )
+                },
             )
         }
 
@@ -61,6 +66,19 @@ fun TrainingNavHost(
 
         composable(AppRoute.Progress.route) {
             ProgressRoute(onBack = { navController.popBackStack() })
+        }
+
+        composable(
+            route = AppRoute.ExerciseProgress.route,
+            arguments = listOf(
+                navArgument(AppRoute.ExerciseProgress.ARG_WORKOUT_EXERCISE_ID) {
+                    type = NavType.LongType
+                }
+            ),
+        ) {
+            ProgressRoute(
+                onBack = { navController.popBackStack() },
+            )
         }
 
         composable(AppRoute.Settings.route) {

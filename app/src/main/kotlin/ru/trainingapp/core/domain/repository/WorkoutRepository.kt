@@ -3,6 +3,7 @@ package ru.trainingapp.core.domain.repository
 import kotlinx.coroutines.flow.Flow
 import ru.trainingapp.core.model.Workout
 import ru.trainingapp.core.model.WorkoutEditorData
+import ru.trainingapp.core.model.WorkoutExerciseProgressPoint
 import ru.trainingapp.core.model.WorkoutExerciseSet
 
 interface WorkoutRepository {
@@ -69,4 +70,8 @@ interface WorkoutRepository {
     suspend fun commitPendingProgress(
         workoutId: Long,
     )
+
+    fun observeWorkoutExerciseProgress(
+        workoutExerciseId: Long,
+    ): Flow<List<WorkoutExerciseProgressPoint>>
 }

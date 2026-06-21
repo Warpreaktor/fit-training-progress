@@ -17,5 +17,14 @@ sealed class AppRoute(val route: String) {
 
     data object Progress : AppRoute("progress")
 
+    data object ExerciseProgress : AppRoute("progress/exercise/{workoutExerciseId}") {
+
+        fun createRoute(workoutExerciseId: Long): String {
+            return "progress/exercise/$workoutExerciseId"
+        }
+
+        const val ARG_WORKOUT_EXERCISE_ID = "workoutExerciseId"
+    }
+
     data object Settings : AppRoute("settings")
 }

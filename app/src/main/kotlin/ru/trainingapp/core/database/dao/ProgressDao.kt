@@ -63,6 +63,22 @@ interface ProgressDao {
 
     @Query(
         """
+        SELECT *
+        FROM workout_exercise_progress_points
+        WHERE workoutExerciseId = :workoutExerciseId
+          AND createdAt >= :dayStartMillis
+          AND createdAt < :dayEndMillis
+        ORDER BY createdAt DESC, revision DESC
+        """
+    )
+    suspend fun getProgressPointsByWorkoutExerciseIdAndDay(
+        workoutExerciseId: Long,
+        dayStartMillis: Long,
+        dayEndMillis: Long,
+    ): List<WorkoutExerciseProgressPointEntity>
+
+    @Query(
+        """
         SELECT COALESCE(MAX(revision), 0) + 1
         FROM workout_exercise_progress_points
         WHERE workoutExerciseId = :workoutExerciseId
@@ -80,6 +96,36 @@ interface ProgressDao {
     @Insert
     suspend fun insertProgressSets(
         entities: List<WorkoutExerciseProgressSetEntity>,
+    )
+
+    @Query(
+        """
+        UPDATE workout_exercise_progress_points
+        SET workoutId = :workoutId,
+            exerciseDefinitionId = :exerciseDefinitionId,
+            exerciseNameSnapshot = :exerciseNameSnapshot,
+            createdAt = :createdAt,
+            reason = :reason
+        WHERE id = :progressPointId
+        """
+    )
+    suspend fun updateProgressPointSnapshot(
+        progressPointId: Long,
+        workoutId: Long,
+        exerciseDefinitionId: Long,
+        exerciseNameSnapshot: String,
+        createdAt: Long,
+        reason: String,
+    )
+
+    @Query(
+        """
+        DELETE FROM workout_exercise_progress_sets
+        WHERE progressPointId = :progressPointId
+        """
+    )
+    suspend fun deleteProgressSetsByProgressPointId(
+        progressPointId: Long,
     )
 
     @Query(
