@@ -11,9 +11,13 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
+import androidx.compose.material3.Checkbox
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExtendedFloatingActionButton
@@ -30,6 +34,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import ru.trainingapp.core.model.Tag
 import ru.trainingapp.core.model.Workout
 import ru.trainingapp.core.ui.component.EmptyState
 
@@ -55,6 +60,14 @@ fun WorkoutListRoute(
         onWorkoutDescriptionChange = viewModel::onWorkoutDescriptionChange,
         onDismissEditor = viewModel::onDismissEditor,
         onSaveWorkoutClick = viewModel::onSaveWorkoutClick,
+        onFilterTagClick = viewModel::onFilterTagClick,
+        onClearFilterClick = viewModel::onClearFilterClick,
+        onEditWorkoutTagsClick = viewModel::onEditWorkoutTagsClick,
+        onDismissTagEditor = viewModel::onDismissTagEditor,
+        onToggleTagSelection = viewModel::onToggleTagSelection,
+        onNewTagNameChange = viewModel::onNewTagNameChange,
+        onCreateTagClick = viewModel::onCreateTagClick,
+        onSaveWorkoutTagsClick = viewModel::onSaveWorkoutTagsClick,
     )
 }
 
@@ -72,6 +85,14 @@ fun WorkoutListScreen(
     onWorkoutDescriptionChange: (String) -> Unit,
     onDismissEditor: () -> Unit,
     onSaveWorkoutClick: () -> Unit,
+    onFilterTagClick: (Long) -> Unit,
+    onClearFilterClick: () -> Unit,
+    onEditWorkoutTagsClick: (Workout) -> Unit,
+    onDismissTagEditor: () -> Unit,
+    onToggleTagSelection: (Long) -> Unit,
+    onNewTagNameChange: (String) -> Unit,
+    onCreateTagClick: () -> Unit,
+    onSaveWorkoutTagsClick: () -> Unit,
 ) {
     Scaffold(
         topBar = {
@@ -102,10 +123,29 @@ fun WorkoutListScreen(
                 }
             }
 
+            if (uiState.allTags.isNotEmpty()) {
+                TagFilterRow(
+                    tags = uiState.allTags,
+                    selectedTagIds = uiState.selectedFilterTagIds,
+                    onTagClick = onFilterTagClick,
+                    onClearClick = onClearFilterClick,
+                )
+            }
+
             if (uiState.workouts.isEmpty()) {
+                val hasFilter = uiState.selectedFilterTagIds.isNotEmpty()
+
                 EmptyState(
-                    title = "Пока нет тренировок",
-                    message = "Создай первую тренировку!",
+                    title = if (hasFilter) {
+                        "Ничего не найдено"
+                    } else {
+                        "Пока нет тренировок"
+                    },
+                    message = if (hasFilter) {
+                        "Под выбранные теги нет тренировок."
+                    } else {
+                        "Создай первую тренировку!"
+                    },
                 )
             } else {
                 LazyColumn(
@@ -119,6 +159,7 @@ fun WorkoutListScreen(
                             workout = workout,
                             onOpenClick = { onOpenWorkout(workout.id) },
                             onProgressClick = { onOpenWorkoutProgress(workout.id) },
+                            onEditTagsClick = { onEditWorkoutTagsClick(workout) },
                             onArchiveClick = { onArchiveWorkoutClick(workout.id) },
                         )
                     }
@@ -127,13 +168,15 @@ fun WorkoutListScreen(
         }
     }
 
-    if (uiState.editor.isVisible) {
-        CreateWorkoutDialog(
-            editor = uiState.editor,
-            onNameChange = onWorkoutNameChange,
-            onDescriptionChange = onWorkoutDescriptionChange,
-            onDismiss = onDismissEditor,
-            onSave = onSaveWorkoutClick,
+    if (uiState.tagEditor.isVisible) {
+        WorkoutTagsDialog(
+            tagEditor = uiState.tagEditor,
+            allTags = uiState.allTags,
+            onToggleTag = onToggleTagSelection,
+            onNewTagNameChange = onNewTagNameChange,
+            onCreateTagClick = onCreateTagClick,
+            onDismiss = onDismissTagEditor,
+            onSave = onSaveWorkoutTagsClick,
         )
     }
 }
@@ -143,6 +186,7 @@ private fun WorkoutCard(
     workout: Workout,
     onOpenClick: () -> Unit,
     onProgressClick: () -> Unit,
+    onEditTagsClick: () -> Unit,
     onArchiveClick: () -> Unit,
 ) {
     Card(
@@ -166,6 +210,10 @@ private fun WorkoutCard(
                     )
                 }
 
+            if (workout.tags.isNotEmpty()) {
+                WorkoutTagChipsRow(tags = workout.tags)
+            }
+
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 AssistChip(
                     onClick = {},
@@ -186,16 +234,22 @@ private fun WorkoutCard(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 TextButton(onClick = onArchiveClick) {
-                    Text("Архивировать")
+                    Text("Архив")
                 }
 
-                Spacer(modifier = Modifier.width(8.dp))
+                Spacer(modifier = Modifier.width(4.dp))
+
+                TextButton(onClick = onEditTagsClick) {
+                    Text("Теги")
+                }
+
+                Spacer(modifier = Modifier.width(4.dp))
 
                 TextButton(onClick = onProgressClick) {
                     Text("Прогресс")
                 }
 
-                Spacer(modifier = Modifier.width(8.dp))
+                Spacer(modifier = Modifier.width(4.dp))
 
                 Button(onClick = onOpenClick) {
                     Text("Открыть")
@@ -246,6 +300,147 @@ private fun CreateWorkoutDialog(
         confirmButton = {
             TextButton(onClick = onSave) {
                 Text("Создать")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Отмена")
+            }
+        },
+    )
+}
+
+@Composable
+private fun TagFilterRow(
+    tags: List<Tag>,
+    selectedTagIds: Set<Long>,
+    onTagClick: (Long) -> Unit,
+    onClearClick: () -> Unit,
+) {
+    Column(
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Text(
+            text = "Фильтр по тегам",
+            style = MaterialTheme.typography.labelLarge,
+        )
+
+        LazyRow(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            item {
+                FilterChip(
+                    selected = selectedTagIds.isEmpty(),
+                    onClick = onClearClick,
+                    label = { Text("Все") },
+                )
+            }
+
+            items(
+                items = tags,
+                key = { tag -> tag.id },
+            ) { tag ->
+                FilterChip(
+                    selected = tag.id in selectedTagIds,
+                    onClick = { onTagClick(tag.id) },
+                    label = { Text("#${tag.name}") },
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun WorkoutTagChipsRow(
+    tags: List<Tag>,
+) {
+    LazyRow(
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        items(
+            items = tags,
+            key = { tag -> tag.id },
+        ) { tag ->
+            AssistChip(
+                onClick = {},
+                label = { Text("#${tag.name}") },
+            )
+        }
+    }
+}
+
+@Composable
+private fun WorkoutTagsDialog(
+    tagEditor: WorkoutTagEditorState,
+    allTags: List<Tag>,
+    onToggleTag: (Long) -> Unit,
+    onNewTagNameChange: (String) -> Unit,
+    onCreateTagClick: () -> Unit,
+    onDismiss: () -> Unit,
+    onSave: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text("Теги: ${tagEditor.workoutName}")
+        },
+        text = {
+            Column(
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                if (allTags.isEmpty()) {
+                    Text(
+                        text = "Тегов пока нет. Создай первый тег ниже.",
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                } else {
+                    LazyColumn(
+                        modifier = Modifier.heightIn(max = 240.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp),
+                    ) {
+                        items(
+                            items = allTags,
+                            key = { tag -> tag.id },
+                        ) { tag ->
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Checkbox(
+                                    checked = tag.id in tagEditor.selectedTagIds,
+                                    onCheckedChange = {
+                                        onToggleTag(tag.id)
+                                    },
+                                )
+
+                                Text(text = "#${tag.name}")
+                            }
+                        }
+                    }
+                }
+
+                OutlinedTextField(
+                    modifier = Modifier.fillMaxWidth(),
+                    value = tagEditor.newTagName,
+                    onValueChange = onNewTagNameChange,
+                    label = { Text("Новый тег") },
+                    isError = tagEditor.newTagNameError != null,
+                    supportingText = {
+                        tagEditor.newTagNameError?.let { Text(it) }
+                    },
+                    singleLine = true,
+                )
+
+                TextButton(
+                    onClick = onCreateTagClick,
+                ) {
+                    Text("Добавить тег")
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onSave) {
+                Text("Сохранить")
             }
         },
         dismissButton = {

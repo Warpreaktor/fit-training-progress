@@ -9,6 +9,7 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import ru.trainingapp.core.database.DatabaseConfig
 import ru.trainingapp.core.database.TrainingDatabase
+import ru.trainingapp.core.database.migration.MIGRATION_1_2
 import javax.inject.Singleton
 
 @Module
@@ -24,7 +25,9 @@ object DatabaseModule {
             context = context,
             klass = TrainingDatabase::class.java,
             name = DatabaseConfig.DATABASE_NAME,
-        ).build()
+        )
+            .addMigrations(MIGRATION_1_2)
+            .build()
     }
 
     @Provides

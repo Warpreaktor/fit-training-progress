@@ -7,12 +7,14 @@ data class Workout(
     val isLocked: Boolean,
     val checkedExercisesCount: Int,
     val exercisesCount: Int,
+    val tags: List<Tag> = emptyList(),
 )
 
 data class ExerciseDefinition(
     val id: Long,
     val name: String,
     val description: String,
+    val tags: List<Tag> = emptyList(),
 )
 
 data class WorkoutExercise(

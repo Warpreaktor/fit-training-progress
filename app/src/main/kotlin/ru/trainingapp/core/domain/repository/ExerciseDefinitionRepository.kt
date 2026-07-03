@@ -19,4 +19,9 @@ interface ExerciseDefinitionRepository {
     )
 
     suspend fun archiveExerciseDefinition(id: Long)
+
+    suspend fun replaceExerciseDefinitionTags(
+        exerciseDefinitionId: Long,
+        tagIds: Set<Long>,
+    )
 }

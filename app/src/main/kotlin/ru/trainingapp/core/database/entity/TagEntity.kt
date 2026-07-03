@@ -12,10 +12,10 @@ import androidx.room.PrimaryKey
 )
 data class TagEntity(
 
-    @PrimaryKey
-    val id: String,
+    @PrimaryKey(autoGenerate = true)
+    val id: Long = 0L,
     val name: String,
     val color: String?,
     val createdAt: Long,
-    val updatedAt: Long
+    val updatedAt: Long,
 )

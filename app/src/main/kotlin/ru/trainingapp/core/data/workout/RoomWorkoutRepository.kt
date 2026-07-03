@@ -13,6 +13,7 @@ import ru.trainingapp.core.data.mapper.toEntity
 import ru.trainingapp.core.database.TrainingDatabase
 import ru.trainingapp.core.database.dao.PendingWorkoutChangeDao
 import ru.trainingapp.core.database.dao.ProgressDao
+import ru.trainingapp.core.database.dao.TagDao
 import ru.trainingapp.core.database.dao.WorkoutDao
 import ru.trainingapp.core.database.dao.WorkoutExerciseDao
 import ru.trainingapp.core.database.dao.WorkoutExerciseSetDao
@@ -40,12 +41,31 @@ class RoomWorkoutRepository @Inject constructor(
     private val workoutExerciseSetDao: WorkoutExerciseSetDao,
     private val pendingWorkoutChangeDao: PendingWorkoutChangeDao,
     private val progressDao: ProgressDao,
+    private val tagDao: TagDao,
 ) : WorkoutRepository {
 
     override fun observeWorkouts(): Flow<List<Workout>> {
-        return workoutDao
-            .observeWorkoutListItems()
-            .map { items -> items.map { it.toDomain() } }
+        return combine(
+            workoutDao.observeWorkoutListItems(),
+            tagDao.observeTags(),
+            tagDao.observeWorkoutTagCrossRefs(),
+        ) { workoutItems, tagEntities, crossRefs ->
+            val tagsById = tagEntities.associateBy { tag -> tag.id }
+
+            val tagIdsByWorkoutId = crossRefs.groupBy(
+                keySelector = { crossRef -> crossRef.workoutId },
+                valueTransform = { crossRef -> crossRef.tagId },
+            )
+
+            workoutItems.map { workoutItem ->
+                val workoutTags = tagIdsByWorkoutId[workoutItem.id]
+                    .orEmpty()
+                    .mapNotNull { tagId -> tagsById[tagId]?.toDomain() }
+                    .sortedBy { tag -> tag.name.lowercase() }
+
+                workoutItem.toDomain(tags = workoutTags)
+            }
+        }
     }
 
     @OptIn(ExperimentalCoroutinesApi::class)
@@ -115,6 +135,25 @@ class RoomWorkoutRepository @Inject constructor(
             id = id,
             archivedAt = System.currentTimeMillis(),
         )
+    }
+
+    override suspend fun replaceWorkoutTags(
+        workoutId: Long,
+        tagIds: Set<Long>,
+    ) {
+        val now = System.currentTimeMillis()
+
+        database.withTransaction {
+            tagDao.replaceWorkoutTags(
+                workoutId = workoutId,
+                tagIds = tagIds,
+            )
+
+            workoutDao.touchWorkout(
+                id = workoutId,
+                updatedAt = now,
+            )
+        }
     }
 
     override suspend fun addExerciseToWorkout(

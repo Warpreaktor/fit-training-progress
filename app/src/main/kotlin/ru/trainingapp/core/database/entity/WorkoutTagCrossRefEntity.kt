@@ -27,6 +27,6 @@ import androidx.room.Index
     ]
 )
 data class WorkoutTagCrossRefEntity(
-    val workoutId: String,
-    val tagId: String
+    val workoutId: Long,
+    val tagId: Long,
 )

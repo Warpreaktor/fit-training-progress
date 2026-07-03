@@ -23,6 +23,11 @@ interface WorkoutRepository {
         id: Long,
     )
 
+    suspend fun replaceWorkoutTags(
+        workoutId: Long,
+        tagIds: Set<Long>,
+    )
+
     suspend fun addExerciseToWorkout(
         workoutId: Long,
         exerciseDefinitionId: Long,

@@ -12,6 +12,7 @@ import ru.trainingapp.core.database.dao.WorkoutDao
 import ru.trainingapp.core.database.dao.WorkoutExerciseDao
 import ru.trainingapp.core.database.dao.WorkoutExerciseSetDao
 import ru.trainingapp.core.database.entity.ExerciseDefinitionEntity
+import ru.trainingapp.core.database.entity.ExerciseDefinitionTagCrossRefEntity
 import ru.trainingapp.core.database.entity.PendingWorkoutChangeEntity
 import ru.trainingapp.core.database.entity.TagEntity
 import ru.trainingapp.core.database.entity.WorkoutEntity
@@ -31,9 +32,10 @@ import ru.trainingapp.core.database.entity.WorkoutTagCrossRefEntity
         WorkoutExerciseProgressPointEntity::class,
         WorkoutExerciseProgressSetEntity::class,
         TagEntity::class,
-        WorkoutTagCrossRefEntity::class
+        WorkoutTagCrossRefEntity::class,
+        ExerciseDefinitionTagCrossRefEntity::class
     ],
-    version = 1,
+    version = 2,
     exportSchema = true
 )
 @TypeConverters(DatabaseConverters::class)
