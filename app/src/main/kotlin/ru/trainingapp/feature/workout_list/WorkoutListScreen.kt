@@ -168,6 +168,16 @@ fun WorkoutListScreen(
         }
     }
 
+    if (uiState.editor.isVisible) {
+        CreateWorkoutDialog(
+            editor = uiState.editor,
+            onNameChange = onWorkoutNameChange,
+            onDescriptionChange = onWorkoutDescriptionChange,
+            onDismiss = onDismissEditor,
+            onSave = onSaveWorkoutClick,
+        )
+    }
+
     if (uiState.tagEditor.isVisible) {
         WorkoutTagsDialog(
             tagEditor = uiState.tagEditor,

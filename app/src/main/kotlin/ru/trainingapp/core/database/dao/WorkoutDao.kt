@@ -52,7 +52,7 @@ interface WorkoutDao {
         LIMIT 1
         """
     )
-    suspend fun getWorkoutById(id: String): WorkoutEntity?
+    suspend fun getWorkoutById(id: Long): WorkoutEntity?
 
     @Insert
     suspend fun insertWorkout(entity: WorkoutEntity): Long

@@ -12,28 +12,54 @@ import kotlinx.coroutines.launch
 import ru.trainingapp.core.domain.exercise.ArchiveExerciseDefinitionUseCase
 import ru.trainingapp.core.domain.exercise.CreateExerciseDefinitionUseCase
 import ru.trainingapp.core.domain.exercise.ObserveExerciseDefinitionsUseCase
+import ru.trainingapp.core.domain.exercise.ReplaceExerciseDefinitionTagsUseCase
 import ru.trainingapp.core.domain.exercise.UpdateExerciseDefinitionUseCase
+import ru.trainingapp.core.domain.tag.CreateTagUseCase
+import ru.trainingapp.core.domain.tag.ObserveTagsUseCase
 import ru.trainingapp.core.model.ExerciseDefinition
+import ru.trainingapp.core.model.Tag
 import javax.inject.Inject
 
 @HiltViewModel
 class ExerciseCatalogViewModel @Inject constructor(
     observeExerciseDefinitionsUseCase: ObserveExerciseDefinitionsUseCase,
+    observeTagsUseCase: ObserveTagsUseCase,
     private val createExerciseDefinitionUseCase: CreateExerciseDefinitionUseCase,
     private val updateExerciseDefinitionUseCase: UpdateExerciseDefinitionUseCase,
     private val archiveExerciseDefinitionUseCase: ArchiveExerciseDefinitionUseCase,
+    private val createTagUseCase: CreateTagUseCase,
+    private val replaceExerciseDefinitionTagsUseCase: ReplaceExerciseDefinitionTagsUseCase,
 ) : ViewModel() {
 
     private val editorState = MutableStateFlow(ExerciseEditorState())
 
+    private val selectedFilterTagIds = MutableStateFlow<Set<Long>>(emptySet())
+
+    private val tagEditorState = MutableStateFlow(ExerciseTagEditorState())
+
     val uiState: StateFlow<ExerciseCatalogUiState> =
         combine(
             observeExerciseDefinitionsUseCase(),
+            observeTagsUseCase(),
             editorState,
-        ) { exercises, editor ->
+            tagEditorState,
+            selectedFilterTagIds,
+        ) { exercises, tags, editor, tagEditor, filterTagIds ->
+
+            val filteredExercises = if (filterTagIds.isEmpty()) {
+                exercises
+            } else {
+                exercises.filter { exercise ->
+                    exercise.tags.any { tag -> tag.id in filterTagIds }
+                }
+            }
+
             ExerciseCatalogUiState(
-                exercises = exercises,
+                exercises = filteredExercises,
+                allTags = tags,
+                selectedFilterTagIds = filterTagIds,
                 editor = editor,
+                tagEditor = tagEditor,
             )
         }.stateIn(
             scope = viewModelScope,
@@ -105,11 +131,100 @@ class ExerciseCatalogViewModel @Inject constructor(
             archiveExerciseDefinitionUseCase(exerciseId)
         }
     }
+
+    fun onFilterTagClick(tagId: Long) {
+        selectedFilterTagIds.value = selectedFilterTagIds.value.toggle(tagId)
+    }
+
+    fun onClearFilterClick() {
+        selectedFilterTagIds.value = emptySet()
+    }
+
+    fun onEditExerciseTagsClick(exercise: ExerciseDefinition) {
+        tagEditorState.value = ExerciseTagEditorState(
+            isVisible = true,
+            exerciseDefinitionId = exercise.id,
+            exerciseName = exercise.name,
+            selectedTagIds = exercise.tags.map { tag -> tag.id }.toSet(),
+        )
+    }
+
+    fun onDismissTagEditor() {
+        tagEditorState.value = ExerciseTagEditorState()
+    }
+
+    fun onToggleTagSelection(tagId: Long) {
+        val current = tagEditorState.value
+
+        tagEditorState.value = current.copy(
+            selectedTagIds = current.selectedTagIds.toggle(tagId),
+        )
+    }
+
+    fun onNewTagNameChange(value: String) {
+        tagEditorState.value = tagEditorState.value.copy(
+            newTagName = value,
+            newTagNameError = null,
+        )
+    }
+
+    fun onCreateTagClick() {
+        val current = tagEditorState.value
+        val tagName = current.newTagName.trim()
+
+        if (tagName.isBlank()) {
+            tagEditorState.value = current.copy(
+                newTagNameError = "Название тега обязательно",
+            )
+            return
+        }
+
+        viewModelScope.launch {
+            val tagId = createTagUseCase(tagName)
+
+            if (tagId <= 0L) {
+                tagEditorState.value = tagEditorState.value.copy(
+                    newTagNameError = "Не удалось создать тег",
+                )
+                return@launch
+            }
+
+            tagEditorState.value = tagEditorState.value.copy(
+                selectedTagIds = tagEditorState.value.selectedTagIds + tagId,
+                newTagName = "",
+                newTagNameError = null,
+            )
+        }
+    }
+
+    fun onSaveExerciseTagsClick() {
+        val current = tagEditorState.value
+
+        viewModelScope.launch {
+            replaceExerciseDefinitionTagsUseCase(
+                exerciseDefinitionId = current.exerciseDefinitionId,
+                tagIds = current.selectedTagIds,
+            )
+
+            tagEditorState.value = ExerciseTagEditorState()
+        }
+    }
+
+    private fun Set<Long>.toggle(value: Long): Set<Long> {
+        return if (value in this) {
+            this - value
+        } else {
+            this + value
+        }
+    }
 }
 
 data class ExerciseCatalogUiState(
     val exercises: List<ExerciseDefinition> = emptyList(),
+    val allTags: List<Tag> = emptyList(),
+    val selectedFilterTagIds: Set<Long> = emptySet(),
     val editor: ExerciseEditorState = ExerciseEditorState(),
+    val tagEditor: ExerciseTagEditorState = ExerciseTagEditorState(),
 )
 
 data class ExerciseEditorState(
@@ -123,3 +238,12 @@ data class ExerciseEditorState(
     val isEditing: Boolean
         get() = exerciseId != null
 }
+
+data class ExerciseTagEditorState(
+    val isVisible: Boolean = false,
+    val exerciseDefinitionId: Long = 0L,
+    val exerciseName: String = "",
+    val selectedTagIds: Set<Long> = emptySet(),
+    val newTagName: String = "",
+    val newTagNameError: String? = null,
+)
