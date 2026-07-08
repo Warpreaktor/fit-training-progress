@@ -29,7 +29,7 @@ interface WorkoutDao {
             AND we.isArchived = 0
         WHERE w.isArchived = 0
         GROUP BY w.id
-        ORDER BY w.updatedAt DESC
+        ORDER BY w.sortOrder ASC, w.createdAt ASC
         """
     )
     fun observeWorkoutListItems(): Flow<List<WorkoutListItemDbModel>>
@@ -88,4 +88,23 @@ interface WorkoutDao {
         id: Long,
         updatedAt: Long,
     )
+
+    @Query(
+        """
+    SELECT COALESCE(MAX(sortOrder), -1) + 1
+    FROM workouts
+    WHERE isArchived = 0
+    """
+    )
+    suspend fun getNextSortOrder(): Int
+
+    @Query(
+        """
+    SELECT *
+    FROM workouts
+    WHERE isArchived = 0
+    ORDER BY sortOrder ASC, createdAt ASC
+    """
+    )
+    suspend fun getActiveWorkoutEntities(): List<WorkoutEntity>
 }

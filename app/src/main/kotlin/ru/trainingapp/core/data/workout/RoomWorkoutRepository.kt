@@ -115,17 +115,22 @@ class RoomWorkoutRepository @Inject constructor(
     ): Long {
         val now = System.currentTimeMillis()
 
-        return workoutDao.insertWorkout(
-            WorkoutEntity(
-                name = name.trim(),
-                description = description.trim(),
-                isLocked = false,
-                isArchived = false,
-                archivedAt = null,
-                createdAt = now,
-                updatedAt = now,
+        return database.withTransaction {
+            val sortOrder = workoutDao.getNextSortOrder()
+
+            workoutDao.insertWorkout(
+                WorkoutEntity(
+                    name = name.trim(),
+                    description = description.trim(),
+                    sortOrder = sortOrder,
+                    isLocked = false,
+                    isArchived = false,
+                    archivedAt = null,
+                    createdAt = now,
+                    updatedAt = now,
+                )
             )
-        )
+        }
     }
 
     override suspend fun archiveWorkout(
@@ -135,6 +140,129 @@ class RoomWorkoutRepository @Inject constructor(
             id = id,
             archivedAt = System.currentTimeMillis(),
         )
+    }
+
+
+    override suspend fun duplicateWorkout(
+        workoutId: Long,
+    ): Long {
+        val now = System.currentTimeMillis()
+
+        return database.withTransaction {
+            val sourceWorkout = workoutDao.getWorkoutById(workoutId)
+                ?: return@withTransaction 0L
+
+            val duplicatedWorkoutId = workoutDao.insertWorkout(
+                sourceWorkout.copy(
+                    id = 0L,
+                    name = "${sourceWorkout.name} (копия)",
+                    sortOrder = workoutDao.getNextSortOrder(),
+                    isLocked = false,
+                    isArchived = false,
+                    archivedAt = null,
+                    createdAt = now,
+                    updatedAt = now,
+                )
+            )
+
+            tagDao.replaceWorkoutTags(
+                workoutId = duplicatedWorkoutId,
+                tagIds = tagDao.getWorkoutTagIds(workoutId).toSet(),
+            )
+
+            workoutExerciseDao
+                .getActiveWorkoutExerciseEntities(workoutId)
+                .sortedBy { workoutExercise -> workoutExercise.sortOrder }
+                .forEach { sourceWorkoutExercise ->
+                    val duplicatedWorkoutExerciseId = workoutExerciseDao.insertWorkoutExercise(
+                        sourceWorkoutExercise.copy(
+                            id = 0L,
+                            workoutId = duplicatedWorkoutId,
+                            isChecked = false,
+                            checkedAt = null,
+                            isArchived = false,
+                            archivedAt = null,
+                            createdAt = now,
+                            updatedAt = now,
+                        )
+                    )
+
+                    workoutExerciseSetDao
+                        .getSetsByWorkoutExerciseId(sourceWorkoutExercise.id)
+                        .sortedBy { set -> set.setNumber }
+                        .forEach { sourceSet ->
+                            workoutExerciseSetDao.insertSet(
+                                sourceSet.copy(
+                                    id = 0L,
+                                    workoutExerciseId = duplicatedWorkoutExerciseId,
+                                    createdAt = now,
+                                    updatedAt = now,
+                                )
+                            )
+                        }
+                }
+
+            duplicatedWorkoutId
+        }
+    }
+
+    override suspend fun moveWorkoutUp(
+        workoutId: Long,
+    ) {
+        moveWorkout(
+            workoutId = workoutId,
+            direction = MoveDirection.UP,
+        )
+    }
+
+    override suspend fun moveWorkoutDown(
+        workoutId: Long,
+    ) {
+        moveWorkout(
+            workoutId = workoutId,
+            direction = MoveDirection.DOWN,
+        )
+    }
+
+    private suspend fun moveWorkout(
+        workoutId: Long,
+        direction: MoveDirection,
+    ) {
+        val now = System.currentTimeMillis()
+
+        database.withTransaction {
+            val workouts = workoutDao
+                .getActiveWorkoutEntities()
+                .sortedBy { workout -> workout.sortOrder }
+
+            val currentIndex = workouts.indexOfFirst { workout -> workout.id == workoutId }
+
+            if (currentIndex == -1) return@withTransaction
+
+            val targetIndex = when (direction) {
+                MoveDirection.UP -> currentIndex - 1
+                MoveDirection.DOWN -> currentIndex + 1
+            }
+
+            if (targetIndex !in workouts.indices) return@withTransaction
+
+            val current = workouts[currentIndex]
+            val target = workouts[targetIndex]
+
+            workoutDao.updateWorkout(
+                current.copy(
+                    sortOrder = target.sortOrder,
+                    updatedAt = now,
+                )
+            )
+
+            workoutDao.updateWorkout(
+                target.copy(
+                    sortOrder = current.sortOrder,
+                    updatedAt = now,
+                )
+            )
+        }
     }
 
     override suspend fun replaceWorkoutTags(

@@ -23,6 +23,18 @@ interface WorkoutRepository {
         id: Long,
     )
 
+    suspend fun duplicateWorkout(
+        workoutId: Long,
+    ): Long
+
+    suspend fun moveWorkoutUp(
+        workoutId: Long,
+    )
+
+    suspend fun moveWorkoutDown(
+        workoutId: Long,
+    )
+
     suspend fun replaceWorkoutTags(
         workoutId: Long,
         tagIds: Set<Long>,

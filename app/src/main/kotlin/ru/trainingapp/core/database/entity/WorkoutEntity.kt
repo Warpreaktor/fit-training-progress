@@ -9,6 +9,7 @@ data class WorkoutEntity(
     val id: Long = 0,
     val name: String,
     val description: String?,
+    val sortOrder: Int = 0,
     val isLocked: Boolean = false,
     val isArchived: Boolean = false,
     val archivedAt: Long? = null,

@@ -121,6 +121,15 @@ interface TagDao {
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun insertExerciseDefinitionTagCrossRef(entity: ExerciseDefinitionTagCrossRefEntity)
 
+    @Query(
+        """
+    SELECT tagId
+    FROM workout_tag_cross_refs
+    WHERE workoutId = :workoutId
+    """
+    )
+    suspend fun getWorkoutTagIds(workoutId: Long): List<Long>
+
     @Transaction
     suspend fun replaceWorkoutTags(
         workoutId: Long,

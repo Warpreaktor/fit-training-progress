@@ -13,6 +13,10 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.KeyboardArrowDown
+import androidx.compose.material.icons.outlined.KeyboardArrowUp
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
@@ -21,6 +25,8 @@ import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExtendedFloatingActionButton
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
@@ -31,6 +37,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -68,6 +75,9 @@ fun WorkoutListRoute(
         onNewTagNameChange = viewModel::onNewTagNameChange,
         onCreateTagClick = viewModel::onCreateTagClick,
         onSaveWorkoutTagsClick = viewModel::onSaveWorkoutTagsClick,
+        onDuplicateWorkoutClick = viewModel::onDuplicateWorkoutClick,
+        onMoveWorkoutUpClick = viewModel::onMoveWorkoutUpClick,
+        onMoveWorkoutDownClick = viewModel::onMoveWorkoutDownClick,
     )
 }
 
@@ -93,6 +103,9 @@ fun WorkoutListScreen(
     onNewTagNameChange: (String) -> Unit,
     onCreateTagClick: () -> Unit,
     onSaveWorkoutTagsClick: () -> Unit,
+    onDuplicateWorkoutClick: (Long) -> Unit,
+    onMoveWorkoutUpClick: (Long) -> Unit,
+    onMoveWorkoutDownClick: (Long) -> Unit,
 ) {
     Scaffold(
         topBar = {
@@ -151,16 +164,23 @@ fun WorkoutListScreen(
                 LazyColumn(
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
-                    items(
+                    itemsIndexed(
                         items = uiState.workouts,
-                        key = { it.id },
-                    ) { workout ->
+                        key = { _, workout -> workout.id },
+                    ) { index, workout ->
+                        val isOrderEditAvailable = uiState.selectedFilterTagIds.isEmpty()
+
                         WorkoutCard(
                             workout = workout,
+                            canMoveUp = isOrderEditAvailable && index > 0,
+                            canMoveDown = isOrderEditAvailable && index < uiState.workouts.lastIndex,
                             onOpenClick = { onOpenWorkout(workout.id) },
                             onProgressClick = { onOpenWorkoutProgress(workout.id) },
                             onEditTagsClick = { onEditWorkoutTagsClick(workout) },
                             onArchiveClick = { onArchiveWorkoutClick(workout.id) },
+                            onDuplicateClick = { onDuplicateWorkoutClick(workout.id) },
+                            onMoveUpClick = { onMoveWorkoutUpClick(workout.id) },
+                            onMoveDownClick = { onMoveWorkoutDownClick(workout.id) },
                         )
                     }
                 }
@@ -194,76 +214,124 @@ fun WorkoutListScreen(
 @Composable
 private fun WorkoutCard(
     workout: Workout,
+    canMoveUp: Boolean,
+    canMoveDown: Boolean,
     onOpenClick: () -> Unit,
     onProgressClick: () -> Unit,
     onEditTagsClick: () -> Unit,
     onArchiveClick: () -> Unit,
+    onDuplicateClick: () -> Unit,
+    onMoveUpClick: () -> Unit,
+    onMoveDownClick: () -> Unit,
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
     ) {
-        Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.Top,
         ) {
-            Text(
-                text = workout.name,
-                style = MaterialTheme.typography.titleMedium,
-            )
+            Column(
+                modifier = Modifier.weight(1f),
+            ) {
+                Text(
+                    text = workout.name,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                )
 
-            workout.description
-                ?.takeIf { it.isNotBlank() }
-                ?.let { description ->
-                    Text(
-                        text = description,
-                        style = MaterialTheme.typography.bodyMedium,
+                workout.description
+                    ?.takeIf { it.isNotBlank() }
+                    ?.let { description ->
+                        Spacer(modifier = Modifier.height(4.dp))
+
+                        Text(
+                            text = description,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                Text(
+                    text = "Упражнений: ${workout.exercisesCount}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+
+                Text(
+                    text = "Отмечено: ${workout.checkedExercisesCount}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                IconButton(
+                    onClick = onMoveUpClick,
+                    enabled = canMoveUp,
+                ) {
+                    Icon(
+                        imageVector = Icons.Outlined.KeyboardArrowUp,
+                        contentDescription = "Переместить тренировку выше",
                     )
                 }
 
-            if (workout.tags.isNotEmpty()) {
-                WorkoutTagChipsRow(tags = workout.tags)
+                IconButton(
+                    onClick = onMoveDownClick,
+                    enabled = canMoveDown,
+                ) {
+                    Icon(
+                        imageVector = Icons.Outlined.KeyboardArrowDown,
+                        contentDescription = "Переместить тренировку ниже",
+                    )
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(4.dp))
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.End,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Spacer(modifier = Modifier.width(4.dp))
+
+            TextButton(onClick = onDuplicateClick) {
+                Text("Копия")
             }
 
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                AssistChip(
-                    onClick = {},
-                    label = { Text("${workout.exercisesCount} упражнений") },
-                )
+            Spacer(modifier = Modifier.width(4.dp))
 
-                AssistChip(
-                    onClick = {},
-                    label = { Text("${workout.checkedExercisesCount} отмечено") },
-                )
+            TextButton(onClick = onArchiveClick) {
+                Text("Архив")
+            }
+        }
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.End,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            TextButton(onClick = onEditTagsClick) {
+                Text("Теги")
             }
 
-            Spacer(modifier = Modifier.height(4.dp))
+            Spacer(modifier = Modifier.width(4.dp))
 
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.End,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                TextButton(onClick = onArchiveClick) {
-                    Text("Архив")
-                }
+            TextButton(onClick = onProgressClick) {
+                Text("Прогресс")
+            }
 
-                Spacer(modifier = Modifier.width(4.dp))
+            Spacer(modifier = Modifier.width(4.dp))
 
-                TextButton(onClick = onEditTagsClick) {
-                    Text("Теги")
-                }
-
-                Spacer(modifier = Modifier.width(4.dp))
-
-                TextButton(onClick = onProgressClick) {
-                    Text("Прогресс")
-                }
-
-                Spacer(modifier = Modifier.width(4.dp))
-
-                Button(onClick = onOpenClick) {
-                    Text("Открыть")
-                }
+            Button(onClick = onOpenClick) {
+                Text("Открыть")
             }
         }
     }

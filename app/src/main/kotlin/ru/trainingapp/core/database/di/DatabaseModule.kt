@@ -11,6 +11,7 @@ import ru.trainingapp.core.database.DatabaseConfig
 import ru.trainingapp.core.database.TrainingDatabase
 import ru.trainingapp.core.database.migration.MIGRATION_1_2
 import ru.trainingapp.core.database.migration.MIGRATION_2_3
+import ru.trainingapp.core.database.migration.MIGRATION_3_4
 import javax.inject.Singleton
 
 @Module
@@ -29,6 +30,7 @@ object DatabaseModule {
         )
             .addMigrations(MIGRATION_1_2)
             .addMigrations(MIGRATION_2_3)
+            .addMigrations(MIGRATION_3_4)
             .build()
     }
 

@@ -13,6 +13,8 @@ import ru.trainingapp.core.domain.tag.CreateTagUseCase
 import ru.trainingapp.core.domain.tag.ObserveTagsUseCase
 import ru.trainingapp.core.domain.workout.ArchiveWorkoutUseCase
 import ru.trainingapp.core.domain.workout.CreateWorkoutUseCase
+import ru.trainingapp.core.domain.workout.DuplicateWorkoutUseCase
+import ru.trainingapp.core.domain.workout.MoveWorkoutUseCase
 import ru.trainingapp.core.domain.workout.ObserveWorkoutUseCase
 import ru.trainingapp.core.domain.workout.ReplaceWorkoutTagsUseCase
 import ru.trainingapp.core.model.Tag
@@ -27,6 +29,8 @@ class WorkoutListViewModel @Inject constructor(
     private val archiveWorkoutUseCase: ArchiveWorkoutUseCase,
     private val createTagUseCase: CreateTagUseCase,
     private val replaceWorkoutTagsUseCase: ReplaceWorkoutTagsUseCase,
+    private val duplicateWorkoutUseCase: DuplicateWorkoutUseCase,
+    private val moveWorkoutUseCase: MoveWorkoutUseCase,
 ) : ViewModel() {
 
     private val editorState = MutableStateFlow(WorkoutEditorState())
@@ -110,6 +114,24 @@ class WorkoutListViewModel @Inject constructor(
     fun onArchiveWorkoutClick(id: Long) {
         viewModelScope.launch {
             archiveWorkoutUseCase(id)
+        }
+    }
+
+    fun onDuplicateWorkoutClick(id: Long) {
+        viewModelScope.launch {
+            duplicateWorkoutUseCase(id)
+        }
+    }
+
+    fun onMoveWorkoutUpClick(id: Long) {
+        viewModelScope.launch {
+            moveWorkoutUseCase.up(id)
+        }
+    }
+
+    fun onMoveWorkoutDownClick(id: Long) {
+        viewModelScope.launch {
+            moveWorkoutUseCase.down(id)
         }
     }
 
