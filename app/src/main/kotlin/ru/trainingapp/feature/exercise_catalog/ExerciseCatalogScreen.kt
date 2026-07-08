@@ -61,6 +61,10 @@ fun ExerciseCatalogRoute(
         onNewTagNameChange = viewModel::onNewTagNameChange,
         onCreateTagClick = viewModel::onCreateTagClick,
         onSaveExerciseTagsClick = viewModel::onSaveExerciseTagsClick,
+        onEditExerciseAlternativesClick = viewModel::onEditExerciseAlternativesClick,
+        onDismissAlternativeEditor = viewModel::onDismissAlternativeEditor,
+        onToggleAlternativeSelection = viewModel::onToggleAlternativeSelection,
+        onSaveExerciseAlternativesClick = viewModel::onSaveExerciseAlternativesClick,
     )
 }
 
@@ -84,6 +88,10 @@ fun ExerciseCatalogScreen(
     onNewTagNameChange: (String) -> Unit,
     onCreateTagClick: () -> Unit,
     onSaveExerciseTagsClick: () -> Unit,
+    onEditExerciseAlternativesClick: (ExerciseDefinition) -> Unit,
+    onDismissAlternativeEditor: () -> Unit,
+    onToggleAlternativeSelection: (Long) -> Unit,
+    onSaveExerciseAlternativesClick: () -> Unit,
 ) {
     Scaffold(
         topBar = {
@@ -161,6 +169,7 @@ fun ExerciseCatalogScreen(
                             exercise = exercise,
                             onEditClick = { onEditExerciseClick(exercise) },
                             onEditTagsClick = { onEditExerciseTagsClick(exercise) },
+                            onEditAlternativesClick = { onEditExerciseAlternativesClick(exercise) },
                             onArchiveClick = { onArchiveExerciseClick(exercise.id) },
                         )
                     }
@@ -190,6 +199,15 @@ fun ExerciseCatalogScreen(
             onSave = onSaveExerciseTagsClick,
         )
     }
+    if (uiState.alternativeEditor.isVisible) {
+        ExerciseAlternativesDialog(
+            alternativeEditor = uiState.alternativeEditor,
+            allExercises = uiState.allExercises,
+            onToggleAlternative = onToggleAlternativeSelection,
+            onDismiss = onDismissAlternativeEditor,
+            onSave = onSaveExerciseAlternativesClick,
+        )
+    }
 }
 
 @Composable
@@ -197,6 +215,7 @@ private fun ExerciseCatalogItem(
     exercise: ExerciseDefinition,
     onEditClick: () -> Unit,
     onEditTagsClick: () -> Unit,
+    onEditAlternativesClick: () -> Unit,
     onArchiveClick: () -> Unit,
 ) {
     Card(modifier = Modifier.fillMaxWidth()) {
@@ -222,6 +241,17 @@ private fun ExerciseCatalogItem(
                 TagChipsRow(tags = exercise.tags)
             }
 
+            if (exercise.alternatives.isNotEmpty()) {
+                Text(
+                    text = "Альтернативы: ${
+                        exercise.alternatives.joinToString(
+                            separator = ", ",
+                        ) { alternative -> alternative.name }
+                    }",
+                    style = MaterialTheme.typography.bodySmall,
+                )
+            }
+
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.End,
@@ -234,6 +264,12 @@ private fun ExerciseCatalogItem(
 
                 TextButton(onClick = onEditTagsClick) {
                     Text("Теги")
+                }
+
+                Spacer(modifier = Modifier.width(4.dp))
+
+                TextButton(onClick = onEditAlternativesClick) {
+                    Text("Альт.")
                 }
 
                 Spacer(modifier = Modifier.width(4.dp))
@@ -429,6 +465,84 @@ private fun ExerciseEditorDialog(
                     label = { Text("Описание") },
                     minLines = 3,
                 )
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onSave) {
+                Text("Сохранить")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Отмена")
+            }
+        },
+    )
+}
+
+@Composable
+private fun ExerciseAlternativesDialog(
+    alternativeEditor: ExerciseAlternativeEditorState,
+    allExercises: List<ExerciseDefinition>,
+    onToggleAlternative: (Long) -> Unit,
+    onDismiss: () -> Unit,
+    onSave: () -> Unit,
+) {
+    val availableAlternatives = allExercises.filter { exercise ->
+        exercise.id != alternativeEditor.exerciseDefinitionId
+    }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text("Альтернативы: ${alternativeEditor.exerciseName}")
+        },
+        text = {
+            if (availableAlternatives.isEmpty()) {
+                Text(
+                    text = "Нет других упражнений. Сначала добавь ещё упражнения в справочник.",
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+            } else {
+                LazyColumn(
+                    modifier = Modifier.heightIn(max = 320.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                ) {
+                    items(
+                        items = availableAlternatives,
+                        key = { exercise -> exercise.id },
+                    ) { exercise ->
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Checkbox(
+                                checked = exercise.id in alternativeEditor.selectedAlternativeExerciseDefinitionIds,
+                                onCheckedChange = {
+                                    onToggleAlternative(exercise.id)
+                                },
+                            )
+
+                            Column(
+                                modifier = Modifier.weight(1f),
+                            ) {
+                                Text(
+                                    text = exercise.name,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                )
+
+                                exercise.description
+                                    .takeIf { it.isNotBlank() }
+                                    ?.let { description ->
+                                        Text(
+                                            text = description,
+                                            style = MaterialTheme.typography.bodySmall,
+                                        )
+                                    }
+                            }
+                        }
+                    }
+                }
             }
         },
         confirmButton = {

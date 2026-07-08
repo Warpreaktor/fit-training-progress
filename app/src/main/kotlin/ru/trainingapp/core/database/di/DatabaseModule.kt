@@ -10,6 +10,7 @@ import dagger.hilt.components.SingletonComponent
 import ru.trainingapp.core.database.DatabaseConfig
 import ru.trainingapp.core.database.TrainingDatabase
 import ru.trainingapp.core.database.migration.MIGRATION_1_2
+import ru.trainingapp.core.database.migration.MIGRATION_2_3
 import javax.inject.Singleton
 
 @Module
@@ -27,6 +28,7 @@ object DatabaseModule {
             name = DatabaseConfig.DATABASE_NAME,
         )
             .addMigrations(MIGRATION_1_2)
+            .addMigrations(MIGRATION_2_3)
             .build()
     }
 
@@ -57,4 +59,8 @@ object DatabaseModule {
     @Provides
     fun provideTagDao(database: TrainingDatabase) =
         database.tagDao()
+
+    @Provides
+    fun provideExerciseAlternativeDao(database: TrainingDatabase) =
+        database.exerciseAlternativeDao()
 }

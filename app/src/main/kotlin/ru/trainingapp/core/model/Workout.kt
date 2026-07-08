@@ -15,6 +15,12 @@ data class ExerciseDefinition(
     val name: String,
     val description: String,
     val tags: List<Tag> = emptyList(),
+    val alternatives: List<ExerciseDefinitionAlternative> = emptyList(),
+)
+
+data class ExerciseDefinitionAlternative(
+    val id: Long,
+    val name: String,
 )
 
 data class WorkoutExercise(

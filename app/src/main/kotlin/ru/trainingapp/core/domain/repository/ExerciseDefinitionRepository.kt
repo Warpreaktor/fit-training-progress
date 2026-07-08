@@ -24,4 +24,9 @@ interface ExerciseDefinitionRepository {
         exerciseDefinitionId: Long,
         tagIds: Set<Long>,
     )
+
+    suspend fun replaceExerciseDefinitionAlternatives(
+        exerciseDefinitionId: Long,
+        alternativeExerciseDefinitionIds: Set<Long>,
+    )
 }

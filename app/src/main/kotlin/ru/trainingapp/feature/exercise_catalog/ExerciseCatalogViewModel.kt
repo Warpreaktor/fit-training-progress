@@ -12,6 +12,7 @@ import kotlinx.coroutines.launch
 import ru.trainingapp.core.domain.exercise.ArchiveExerciseDefinitionUseCase
 import ru.trainingapp.core.domain.exercise.CreateExerciseDefinitionUseCase
 import ru.trainingapp.core.domain.exercise.ObserveExerciseDefinitionsUseCase
+import ru.trainingapp.core.domain.exercise.ReplaceExerciseDefinitionAlternativesUseCase
 import ru.trainingapp.core.domain.exercise.ReplaceExerciseDefinitionTagsUseCase
 import ru.trainingapp.core.domain.exercise.UpdateExerciseDefinitionUseCase
 import ru.trainingapp.core.domain.tag.CreateTagUseCase
@@ -29,6 +30,7 @@ class ExerciseCatalogViewModel @Inject constructor(
     private val archiveExerciseDefinitionUseCase: ArchiveExerciseDefinitionUseCase,
     private val createTagUseCase: CreateTagUseCase,
     private val replaceExerciseDefinitionTagsUseCase: ReplaceExerciseDefinitionTagsUseCase,
+    private val replaceExerciseDefinitionAlternativesUseCase: ReplaceExerciseDefinitionAlternativesUseCase,
 ) : ViewModel() {
 
     private val editorState = MutableStateFlow(ExerciseEditorState())
@@ -37,29 +39,44 @@ class ExerciseCatalogViewModel @Inject constructor(
 
     private val tagEditorState = MutableStateFlow(ExerciseTagEditorState())
 
+    private val alternativeEditorState = MutableStateFlow(ExerciseAlternativeEditorState())
+
     val uiState: StateFlow<ExerciseCatalogUiState> =
         combine(
-            observeExerciseDefinitionsUseCase(),
-            observeTagsUseCase(),
-            editorState,
-            tagEditorState,
+            combine(
+                observeExerciseDefinitionsUseCase(),
+                observeTagsUseCase(),
+                editorState,
+                tagEditorState,
+                alternativeEditorState,
+            ) { exercises, tags, editor, tagEditor, alternativeEditor ->
+                ExerciseCatalogCombinedState(
+                    exercises = exercises,
+                    tags = tags,
+                    editor = editor,
+                    tagEditor = tagEditor,
+                    alternativeEditor = alternativeEditor,
+                )
+            },
             selectedFilterTagIds,
-        ) { exercises, tags, editor, tagEditor, filterTagIds ->
+        ) { combinedState, filterTagIds ->
 
             val filteredExercises = if (filterTagIds.isEmpty()) {
-                exercises
+                combinedState.exercises
             } else {
-                exercises.filter { exercise ->
+                combinedState.exercises.filter { exercise ->
                     exercise.tags.any { tag -> tag.id in filterTagIds }
                 }
             }
 
             ExerciseCatalogUiState(
                 exercises = filteredExercises,
-                allTags = tags,
+                allExercises = combinedState.exercises,
+                allTags = combinedState.tags,
                 selectedFilterTagIds = filterTagIds,
-                editor = editor,
-                tagEditor = tagEditor,
+                editor = combinedState.editor,
+                tagEditor = combinedState.tagEditor,
+                alternativeEditor = combinedState.alternativeEditor,
             )
         }.stateIn(
             scope = viewModelScope,
@@ -210,6 +227,44 @@ class ExerciseCatalogViewModel @Inject constructor(
         }
     }
 
+    fun onEditExerciseAlternativesClick(exercise: ExerciseDefinition) {
+        alternativeEditorState.value = ExerciseAlternativeEditorState(
+            isVisible = true,
+            exerciseDefinitionId = exercise.id,
+            exerciseName = exercise.name,
+            selectedAlternativeExerciseDefinitionIds = exercise.alternatives
+                .map { alternative -> alternative.id }
+                .toSet(),
+        )
+    }
+
+    fun onDismissAlternativeEditor() {
+        alternativeEditorState.value = ExerciseAlternativeEditorState()
+    }
+
+    fun onToggleAlternativeSelection(alternativeExerciseDefinitionId: Long) {
+        val current = alternativeEditorState.value
+
+        alternativeEditorState.value = current.copy(
+            selectedAlternativeExerciseDefinitionIds = current
+                .selectedAlternativeExerciseDefinitionIds
+                .toggle(alternativeExerciseDefinitionId),
+        )
+    }
+
+    fun onSaveExerciseAlternativesClick() {
+        val current = alternativeEditorState.value
+
+        viewModelScope.launch {
+            replaceExerciseDefinitionAlternativesUseCase(
+                exerciseDefinitionId = current.exerciseDefinitionId,
+                alternativeExerciseDefinitionIds = current.selectedAlternativeExerciseDefinitionIds,
+            )
+
+            alternativeEditorState.value = ExerciseAlternativeEditorState()
+        }
+    }
+
     private fun Set<Long>.toggle(value: Long): Set<Long> {
         return if (value in this) {
             this - value
@@ -219,12 +274,22 @@ class ExerciseCatalogViewModel @Inject constructor(
     }
 }
 
+private data class ExerciseCatalogCombinedState(
+    val exercises: List<ExerciseDefinition>,
+    val tags: List<Tag>,
+    val editor: ExerciseEditorState,
+    val tagEditor: ExerciseTagEditorState,
+    val alternativeEditor: ExerciseAlternativeEditorState,
+)
+
 data class ExerciseCatalogUiState(
     val exercises: List<ExerciseDefinition> = emptyList(),
+    val allExercises: List<ExerciseDefinition> = emptyList(),
     val allTags: List<Tag> = emptyList(),
     val selectedFilterTagIds: Set<Long> = emptySet(),
     val editor: ExerciseEditorState = ExerciseEditorState(),
     val tagEditor: ExerciseTagEditorState = ExerciseTagEditorState(),
+    val alternativeEditor: ExerciseAlternativeEditorState = ExerciseAlternativeEditorState(),
 )
 
 data class ExerciseEditorState(
@@ -246,4 +311,11 @@ data class ExerciseTagEditorState(
     val selectedTagIds: Set<Long> = emptySet(),
     val newTagName: String = "",
     val newTagNameError: String? = null,
+)
+
+data class ExerciseAlternativeEditorState(
+    val isVisible: Boolean = false,
+    val exerciseDefinitionId: Long = 0L,
+    val exerciseName: String = "",
+    val selectedAlternativeExerciseDefinitionIds: Set<Long> = emptySet(),
 )
