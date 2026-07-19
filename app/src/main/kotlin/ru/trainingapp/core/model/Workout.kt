@@ -16,6 +16,7 @@ data class ExerciseDefinition(
     val description: String,
     val tags: List<Tag> = emptyList(),
     val alternatives: List<ExerciseDefinitionAlternative> = emptyList(),
+    val images: List<ExerciseImage> = emptyList(),
 )
 
 data class ExerciseDefinitionAlternative(
@@ -31,6 +32,7 @@ data class WorkoutExercise(
     val sortOrder: Int,
     val comment: String?,
     val isChecked: Boolean,
+    val images: List<ExerciseImage> = emptyList(),
     val sets: List<WorkoutExerciseSet>,
 )
 

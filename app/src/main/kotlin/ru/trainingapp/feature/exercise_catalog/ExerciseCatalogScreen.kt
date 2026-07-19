@@ -1,17 +1,27 @@
 package ru.trainingapp.feature.exercise_catalog
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Image
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Card
@@ -19,10 +29,12 @@ import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SegmentedButtonDefaults.Icon
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -30,10 +42,14 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import coil.compose.AsyncImage
 import ru.trainingapp.core.model.ExerciseDefinition
+import ru.trainingapp.core.model.ExerciseImage
 import ru.trainingapp.core.model.Tag
 
 @Composable
@@ -42,6 +58,14 @@ fun ExerciseCatalogRoute(
     viewModel: ExerciseCatalogViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+
+    val imagePickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetMultipleContents(),
+    ) { uris ->
+        viewModel.onImagesSelected(
+            uriStrings = uris.map { uri -> uri.toString() },
+        )
+    }
 
     ExerciseCatalogScreen(
         uiState = uiState,
@@ -65,6 +89,12 @@ fun ExerciseCatalogRoute(
         onDismissAlternativeEditor = viewModel::onDismissAlternativeEditor,
         onToggleAlternativeSelection = viewModel::onToggleAlternativeSelection,
         onSaveExerciseAlternativesClick = viewModel::onSaveExerciseAlternativesClick,
+        onAddImagesClick = { exercise ->
+            viewModel.onPrepareAddImagesClick(exercise)
+            imagePickerLauncher.launch("image/*")
+        },
+        onSetCoverImageClick = viewModel::onSetCoverImageClick,
+        onDeleteExerciseImageClick = viewModel::onDeleteExerciseImageClick,
     )
 }
 
@@ -92,6 +122,9 @@ fun ExerciseCatalogScreen(
     onDismissAlternativeEditor: () -> Unit,
     onToggleAlternativeSelection: (Long) -> Unit,
     onSaveExerciseAlternativesClick: () -> Unit,
+    onAddImagesClick: (ExerciseDefinition) -> Unit,
+    onSetCoverImageClick: (Long, Long) -> Unit,
+    onDeleteExerciseImageClick: (Long, Long) -> Unit,
 ) {
     Scaffold(
         topBar = {
@@ -171,6 +204,13 @@ fun ExerciseCatalogScreen(
                             onEditTagsClick = { onEditExerciseTagsClick(exercise) },
                             onEditAlternativesClick = { onEditExerciseAlternativesClick(exercise) },
                             onArchiveClick = { onArchiveExerciseClick(exercise.id) },
+                            onAddImagesClick = { onAddImagesClick(exercise) },
+                            onSetCoverImageClick = { imageId ->
+                                onSetCoverImageClick(exercise.id, imageId)
+                            },
+                            onDeleteImageClick = { imageId ->
+                                onDeleteExerciseImageClick(exercise.id, imageId)
+                            },
                         )
                     }
                 }
@@ -216,6 +256,9 @@ private fun ExerciseCatalogItem(
     onEditClick: () -> Unit,
     onEditTagsClick: () -> Unit,
     onEditAlternativesClick: () -> Unit,
+    onAddImagesClick: () -> Unit,
+    onSetCoverImageClick: (Long) -> Unit,
+    onDeleteImageClick: (Long) -> Unit,
     onArchiveClick: () -> Unit,
 ) {
     Card(modifier = Modifier.fillMaxWidth()) {
@@ -236,6 +279,12 @@ private fun ExerciseCatalogItem(
                         style = MaterialTheme.typography.bodyMedium,
                     )
                 }
+
+            ExerciseCoverImage(
+                coverImageUri = exercise.images.firstOrNull { image -> image.isCover }?.uri
+                    ?: exercise.images.firstOrNull()?.uri,
+                onClick = onAddImagesClick,
+            )
 
             if (exercise.tags.isNotEmpty()) {
                 TagChipsRow(tags = exercise.tags)
@@ -556,4 +605,114 @@ private fun ExerciseAlternativesDialog(
             }
         },
     )
+}
+
+@Composable
+private fun ExerciseImagesRow(
+    images: List<ExerciseImage>,
+    onSetCoverClick: (Long) -> Unit,
+    onDeleteClick: (Long) -> Unit,
+) {
+    Column(
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Text(
+            text = "Картинки",
+            style = MaterialTheme.typography.labelLarge,
+        )
+
+        LazyRow(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            items(
+                items = images,
+                key = { image -> image.id },
+            ) { image ->
+                ExerciseImageItem(
+                    image = image,
+                    onSetCoverClick = { onSetCoverClick(image.id) },
+                    onDeleteClick = { onDeleteClick(image.id) },
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun ExerciseImageItem(
+    image: ExerciseImage,
+    onSetCoverClick: () -> Unit,
+    onDeleteClick: () -> Unit,
+) {
+    Card {
+        Column(
+            modifier = Modifier.padding(8.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(96.dp)
+                    .clip(RoundedCornerShape(12.dp)),
+            ) {
+                AsyncImage(
+                    model = image.uri,
+                    contentDescription = null,
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Crop,
+                )
+            }
+
+            Text(
+                text = if (image.isCover) {
+                    "Обложка"
+                } else {
+                    "Фото"
+                },
+                style = MaterialTheme.typography.labelSmall,
+            )
+
+            TextButton(
+                onClick = onSetCoverClick,
+                enabled = !image.isCover,
+            ) {
+                Text("Обложка")
+            }
+
+            TextButton(onClick = onDeleteClick) {
+                Text("Удалить")
+            }
+        }
+    }
+}
+
+@Composable
+private fun ExerciseCoverImage(
+    coverImageUri: String?,
+    onClick: () -> Unit,
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(140.dp)
+            .clip(RoundedCornerShape(12.dp))
+            .clickable(onClick = onClick)
+            .background(MaterialTheme.colorScheme.surfaceVariant),
+        contentAlignment = Alignment.Center,
+    ) {
+        if (coverImageUri != null) {
+            AsyncImage(
+                model = coverImageUri,
+                contentDescription = null,
+                modifier = Modifier.fillMaxSize(),
+                contentScale = ContentScale.Crop,
+            )
+        } else {
+            Icon(
+                imageVector = Icons.Outlined.Image,
+                contentDescription = "Добавить изображение упражнения",
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
 }

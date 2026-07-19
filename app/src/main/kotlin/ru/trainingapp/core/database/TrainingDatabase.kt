@@ -6,6 +6,7 @@ import androidx.room.TypeConverters
 import ru.trainingapp.core.database.converter.DatabaseConverters
 import ru.trainingapp.core.database.dao.ExerciseAlternativeDao
 import ru.trainingapp.core.database.dao.ExerciseDefinitionDao
+import ru.trainingapp.core.database.dao.ExerciseImageDao
 import ru.trainingapp.core.database.dao.PendingWorkoutChangeDao
 import ru.trainingapp.core.database.dao.ProgressDao
 import ru.trainingapp.core.database.dao.TagDao
@@ -15,6 +16,7 @@ import ru.trainingapp.core.database.dao.WorkoutExerciseSetDao
 import ru.trainingapp.core.database.entity.ExerciseDefinitionAlternativeCrossRefEntity
 import ru.trainingapp.core.database.entity.ExerciseDefinitionEntity
 import ru.trainingapp.core.database.entity.ExerciseDefinitionTagCrossRefEntity
+import ru.trainingapp.core.database.entity.ExerciseImageEntity
 import ru.trainingapp.core.database.entity.PendingWorkoutChangeEntity
 import ru.trainingapp.core.database.entity.TagEntity
 import ru.trainingapp.core.database.entity.WorkoutEntity
@@ -37,8 +39,9 @@ import ru.trainingapp.core.database.entity.WorkoutTagCrossRefEntity
         WorkoutTagCrossRefEntity::class,
         ExerciseDefinitionTagCrossRefEntity::class,
         ExerciseDefinitionAlternativeCrossRefEntity::class,
+        ExerciseImageEntity::class,
     ],
-    version = 4 ,
+    version = 5,
     exportSchema = true
 )
 @TypeConverters(DatabaseConverters::class)
@@ -59,4 +62,6 @@ abstract class TrainingDatabase : RoomDatabase() {
     abstract fun tagDao(): TagDao
 
     abstract fun exerciseAlternativeDao(): ExerciseAlternativeDao
+
+    abstract fun exerciseImageDao(): ExerciseImageDao
 }

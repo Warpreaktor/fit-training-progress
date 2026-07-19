@@ -9,11 +9,14 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import ru.trainingapp.core.domain.exercise.AddExerciseImagesUseCase
 import ru.trainingapp.core.domain.exercise.ArchiveExerciseDefinitionUseCase
 import ru.trainingapp.core.domain.exercise.CreateExerciseDefinitionUseCase
+import ru.trainingapp.core.domain.exercise.DeleteExerciseImageUseCase
 import ru.trainingapp.core.domain.exercise.ObserveExerciseDefinitionsUseCase
 import ru.trainingapp.core.domain.exercise.ReplaceExerciseDefinitionAlternativesUseCase
 import ru.trainingapp.core.domain.exercise.ReplaceExerciseDefinitionTagsUseCase
+import ru.trainingapp.core.domain.exercise.SetExerciseCoverImageUseCase
 import ru.trainingapp.core.domain.exercise.UpdateExerciseDefinitionUseCase
 import ru.trainingapp.core.domain.tag.CreateTagUseCase
 import ru.trainingapp.core.domain.tag.ObserveTagsUseCase
@@ -31,6 +34,9 @@ class ExerciseCatalogViewModel @Inject constructor(
     private val createTagUseCase: CreateTagUseCase,
     private val replaceExerciseDefinitionTagsUseCase: ReplaceExerciseDefinitionTagsUseCase,
     private val replaceExerciseDefinitionAlternativesUseCase: ReplaceExerciseDefinitionAlternativesUseCase,
+    private val addExerciseImagesUseCase: AddExerciseImagesUseCase,
+    private val setExerciseCoverImageUseCase: SetExerciseCoverImageUseCase,
+    private val deleteExerciseImageUseCase: DeleteExerciseImageUseCase,
 ) : ViewModel() {
 
     private val editorState = MutableStateFlow(ExerciseEditorState())
@@ -40,6 +46,8 @@ class ExerciseCatalogViewModel @Inject constructor(
     private val tagEditorState = MutableStateFlow(ExerciseTagEditorState())
 
     private val alternativeEditorState = MutableStateFlow(ExerciseAlternativeEditorState())
+
+    private var imagePickerExerciseDefinitionId: Long? = null
 
     val uiState: StateFlow<ExerciseCatalogUiState> =
         combine(
@@ -262,6 +270,51 @@ class ExerciseCatalogViewModel @Inject constructor(
             )
 
             alternativeEditorState.value = ExerciseAlternativeEditorState()
+        }
+    }
+
+    fun onPrepareAddImagesClick(exercise: ExerciseDefinition) {
+        imagePickerExerciseDefinitionId = exercise.id
+    }
+
+    fun onImagesSelected(uriStrings: List<String>) {
+        val exerciseDefinitionId = imagePickerExerciseDefinitionId ?: return
+
+        imagePickerExerciseDefinitionId = null
+
+        if (uriStrings.isEmpty()) {
+            return
+        }
+
+        viewModelScope.launch {
+            addExerciseImagesUseCase(
+                exerciseDefinitionId = exerciseDefinitionId,
+                sourceUris = uriStrings,
+            )
+        }
+    }
+
+    fun onSetCoverImageClick(
+        exerciseDefinitionId: Long,
+        imageId: Long,
+    ) {
+        viewModelScope.launch {
+            setExerciseCoverImageUseCase(
+                exerciseDefinitionId = exerciseDefinitionId,
+                imageId = imageId,
+            )
+        }
+    }
+
+    fun onDeleteExerciseImageClick(
+        exerciseDefinitionId: Long,
+        imageId: Long,
+    ) {
+        viewModelScope.launch {
+            deleteExerciseImageUseCase(
+                exerciseDefinitionId = exerciseDefinitionId,
+                imageId = imageId,
+            )
         }
     }
 

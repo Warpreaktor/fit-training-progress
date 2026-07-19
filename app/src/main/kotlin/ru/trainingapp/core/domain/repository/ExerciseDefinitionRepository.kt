@@ -29,4 +29,19 @@ interface ExerciseDefinitionRepository {
         exerciseDefinitionId: Long,
         alternativeExerciseDefinitionIds: Set<Long>,
     )
+
+    suspend fun addExerciseImages(
+        exerciseDefinitionId: Long,
+        sourceUris: List<String>,
+    )
+
+    suspend fun setExerciseCoverImage(
+        exerciseDefinitionId: Long,
+        imageId: Long,
+    )
+
+    suspend fun deleteExerciseImage(
+        exerciseDefinitionId: Long,
+        imageId: Long,
+    )
 }

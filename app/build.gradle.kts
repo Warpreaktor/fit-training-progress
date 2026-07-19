@@ -67,6 +67,9 @@ dependencies {
     implementation(libs.androidx.compose.material3)
     implementation(libs.androidx.compose.material.icons.extended)
 
+    //Для отображения картинок
+    implementation("io.coil-kt:coil-compose:2.7.0")
+
     implementation(libs.hilt.android)
     ksp(libs.hilt.compiler)
 
