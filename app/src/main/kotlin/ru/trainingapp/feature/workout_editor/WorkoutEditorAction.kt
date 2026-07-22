@@ -9,6 +9,10 @@ sealed interface WorkoutEditorAction {
 
     data object DismissAddExerciseDialog : WorkoutEditorAction
 
+    data class AddExerciseSearchQueryChanged(
+        val query: String,
+    ) : WorkoutEditorAction
+
     data object ErrorMessageShown : WorkoutEditorAction
 
     data class ExerciseSelected(

@@ -58,6 +58,8 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.foundation.layout.width
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.runtime.DisposableEffect
@@ -221,6 +223,14 @@ private fun WorkoutEditorScreen(
         if (uiState.isAddExerciseDialogVisible) {
             AddExerciseDialog(
                 exercises = uiState.availableExercises,
+                searchQuery = uiState.addExerciseSearchQuery,
+                onSearchQueryChange = { query ->
+                    onAction(
+                        WorkoutEditorAction.AddExerciseSearchQueryChanged(
+                            query = query,
+                        )
+                    )
+                },
                 onDismiss = {
                     onAction(WorkoutEditorAction.DismissAddExerciseDialog)
                 },
@@ -708,6 +718,8 @@ private fun EmptySetsContent() {
 @Composable
 private fun AddExerciseDialog(
     exercises: List<ExerciseDefinition>,
+    searchQuery: String,
+    onSearchQueryChange: (String) -> Unit,
     onDismiss: () -> Unit,
     onExerciseClick: (Long) -> Unit,
 ) {
@@ -717,26 +729,75 @@ private fun AddExerciseDialog(
             Text("Добавить упражнение")
         },
         text = {
-            if (exercises.isEmpty()) {
-                Text(
-                    text = "Справочник упражнений пуст. Сначала создай упражнение в справочнике.",
-                    style = MaterialTheme.typography.bodyMedium,
-                )
-            } else {
-                LazyColumn(
-                    modifier = Modifier.heightIn(max = 360.dp),
-                    verticalArrangement = Arrangement.spacedBy(4.dp),
-                ) {
-                    items(
-                        items = exercises,
-                        key = { exercise -> exercise.id },
-                    ) { exercise ->
-                        ExerciseDefinitionListItem(
-                            exercise = exercise,
-                            onClick = {
-                                onExerciseClick(exercise.id)
-                            },
+            Column(
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                OutlinedTextField(
+                    value = searchQuery,
+                    onValueChange = onSearchQueryChange,
+                    modifier = Modifier.fillMaxWidth(),
+                    label = {
+                        Text("Поиск")
+                    },
+                    placeholder = {
+                        Text("Например: тяга или жим")
+                    },
+                    singleLine = true,
+                    leadingIcon = {
+                        Icon(
+                            imageVector = Icons.Default.Search,
+                            contentDescription = null,
                         )
+                    },
+                    trailingIcon = {
+                        if (searchQuery.isNotBlank()) {
+                            IconButton(
+                                onClick = {
+                                    onSearchQueryChange("")
+                                },
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Close,
+                                    contentDescription = "Очистить поиск",
+                                )
+                            }
+                        }
+                    },
+                )
+
+                when {
+                    exercises.isEmpty() && searchQuery.isBlank() -> {
+                        Text(
+                            text = "Справочник упражнений пуст. Сначала создай упражнение в справочнике.",
+                            style = MaterialTheme.typography.bodyMedium,
+                        )
+                    }
+
+                    exercises.isEmpty() -> {
+                        Text(
+                            text = "По запросу «${searchQuery.trim()}» ничего не найдено.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+
+                    else -> {
+                        LazyColumn(
+                            modifier = Modifier.heightIn(max = 360.dp),
+                            verticalArrangement = Arrangement.spacedBy(4.dp),
+                        ) {
+                            items(
+                                items = exercises,
+                                key = { exercise -> exercise.id },
+                            ) { exercise ->
+                                ExerciseDefinitionListItem(
+                                    exercise = exercise,
+                                    onClick = {
+                                        onExerciseClick(exercise.id)
+                                    },
+                                )
+                            }
+                        }
                     }
                 }
             }

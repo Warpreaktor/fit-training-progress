@@ -9,6 +9,7 @@ data class WorkoutEditorUiState(
     val isLoading: Boolean = true,
     val exercises: List<WorkoutExerciseUi> = emptyList(),
     val availableExercises: List<ExerciseDefinition> = emptyList(),
+    val addExerciseSearchQuery: String = "",
     val isAddExerciseDialogVisible: Boolean = false,
     val errorMessage: String? = null,
 )

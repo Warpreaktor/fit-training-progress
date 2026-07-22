@@ -2,13 +2,12 @@ package ru.trainingapp.feature.workout_editor
 
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
-import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import ru.trainingapp.navigation.AppRoute
-import javax.inject.Inject
 import androidx.lifecycle.viewModelScope
+import dagger.hilt.android.lifecycle.HiltViewModel
+import javax.inject.Inject
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
@@ -24,8 +23,10 @@ import ru.trainingapp.core.domain.workout.RemoveWorkoutExerciseSetUseCase
 import ru.trainingapp.core.domain.workout.ResetWorkoutCheckmarksUseCase
 import ru.trainingapp.core.domain.workout.ToggleWorkoutExerciseCheckedUseCase
 import ru.trainingapp.core.domain.workout.UpdateWorkoutExerciseSetUseCase
+import ru.trainingapp.core.model.ExerciseDefinition
 import ru.trainingapp.core.model.WeightUnit
 import ru.trainingapp.core.model.WorkoutExerciseSetLoadType
+import ru.trainingapp.navigation.AppRoute
 
 @HiltViewModel
 class WorkoutEditorViewModel @Inject constructor(
@@ -44,7 +45,9 @@ class WorkoutEditorViewModel @Inject constructor(
 ) : ViewModel() {
 
     private val workoutId: Long = requireNotNull(
-        savedStateHandle.get<Long>(AppRoute.WorkoutEditor.ARG_WORKOUT_ID)
+        savedStateHandle.get<Long>(
+            AppRoute.WorkoutEditor.ARG_WORKOUT_ID,
+        )
     ) {
         "Missing workoutId navigation argument"
     }
@@ -53,15 +56,31 @@ class WorkoutEditorViewModel @Inject constructor(
 
     private val errorMessage = MutableStateFlow<String?>(null)
 
-    private val setDrafts = MutableStateFlow<Map<Long, WorkoutExerciseSetDraft>>(emptyMap())
+    private val setDrafts =
+        MutableStateFlow<Map<Long, WorkoutExerciseSetDraft>>(emptyMap())
+
+    private val addExerciseSearchQuery = MutableStateFlow("")
+
+    private val addExercisePickerState = combine(
+        observeExerciseDefinitionsUseCase(),
+        addExerciseSearchQuery,
+    ) { exercises, query ->
+        AddExercisePickerState(
+            query = query,
+            exercises = filterAvailableExercises(
+                exercises = exercises,
+                query = query,
+            ),
+        )
+    }
 
     val uiState: StateFlow<WorkoutEditorUiState> = combine(
         observeWorkoutEditorUseCase(workoutId),
-        observeExerciseDefinitionsUseCase(),
+        addExercisePickerState,
         isAddExerciseDialogVisible,
         errorMessage,
         setDrafts,
-    ) { editorData, availableExercises, isDialogVisible, error, drafts ->
+    ) { editorData, exercisePickerState, isDialogVisible, error, drafts ->
         WorkoutEditorUiState(
             workoutId = workoutId,
             title = editorData?.workout?.name.orEmpty(),
@@ -75,7 +94,8 @@ class WorkoutEditorViewModel @Inject constructor(
                         setDrafts = drafts,
                     )
                 },
-            availableExercises = availableExercises,
+            availableExercises = exercisePickerState.exercises,
+            addExerciseSearchQuery = exercisePickerState.query,
             isAddExerciseDialogVisible = isDialogVisible,
             errorMessage = error,
         )
@@ -93,11 +113,17 @@ class WorkoutEditorViewModel @Inject constructor(
     ) {
         when (action) {
             WorkoutEditorAction.AddExerciseClick -> {
+                addExerciseSearchQuery.value = ""
                 isAddExerciseDialogVisible.value = true
             }
 
             WorkoutEditorAction.DismissAddExerciseDialog -> {
                 isAddExerciseDialogVisible.value = false
+                addExerciseSearchQuery.value = ""
+            }
+
+            is WorkoutEditorAction.AddExerciseSearchQueryChanged -> {
+                addExerciseSearchQuery.value = action.query
             }
 
             WorkoutEditorAction.ErrorMessageShown -> {
@@ -105,27 +131,39 @@ class WorkoutEditorViewModel @Inject constructor(
             }
 
             is WorkoutEditorAction.ExerciseSelected -> {
-                addExerciseToWorkout(action.exerciseDefinitionId)
+                addExerciseToWorkout(
+                    exerciseDefinitionId = action.exerciseDefinitionId,
+                )
             }
 
             is WorkoutEditorAction.ArchiveExerciseClick -> {
-                archiveWorkoutExercise(action.workoutExerciseId)
+                archiveWorkoutExercise(
+                    workoutExerciseId = action.workoutExerciseId,
+                )
             }
 
             is WorkoutEditorAction.AddSetClick -> {
-                addWorkoutExerciseSet(action.workoutExerciseId)
+                addWorkoutExerciseSet(
+                    workoutExerciseId = action.workoutExerciseId,
+                )
             }
 
             is WorkoutEditorAction.RemoveSetClick -> {
-                removeWorkoutExerciseSet(action.workoutExerciseSetId)
+                removeWorkoutExerciseSet(
+                    workoutExerciseSetId = action.workoutExerciseSetId,
+                )
             }
 
             is WorkoutEditorAction.MoveExerciseUpClick -> {
-                moveWorkoutExerciseUp(action.workoutExerciseId)
+                moveWorkoutExerciseUp(
+                    workoutExerciseId = action.workoutExerciseId,
+                )
             }
 
             is WorkoutEditorAction.MoveExerciseDownClick -> {
-                moveWorkoutExerciseDown(action.workoutExerciseId)
+                moveWorkoutExerciseDown(
+                    workoutExerciseId = action.workoutExerciseId,
+                )
             }
 
             is WorkoutEditorAction.SetRepsChanged -> {
@@ -173,7 +211,6 @@ class WorkoutEditorViewModel @Inject constructor(
             WorkoutEditorAction.ResetCheckmarksClick -> {
                 resetWorkoutCheckmarks()
             }
-
         }
     }
 
@@ -207,6 +244,7 @@ class WorkoutEditorViewModel @Inject constructor(
         exerciseDefinitionId: Long,
     ) {
         isAddExerciseDialogVisible.value = false
+        addExerciseSearchQuery.value = ""
 
         launchOperation {
             addExerciseToWorkoutUseCase(
@@ -262,6 +300,70 @@ class WorkoutEditorViewModel @Inject constructor(
         }
     }
 
+    private fun filterAvailableExercises(
+        exercises: List<ExerciseDefinition>,
+        query: String,
+    ): List<ExerciseDefinition> {
+        val normalizedQuery = query.normalizeForSearch()
+
+        if (normalizedQuery.isBlank()) {
+            return exercises
+        }
+
+        val queryParts = normalizedQuery
+            .split(" ")
+            .filter { part ->
+                part.isNotBlank()
+            }
+
+        val firstQueryPart = queryParts.first()
+
+        return exercises
+            .filter { exercise ->
+                val normalizedName = exercise.name.normalizeForSearch()
+
+                queryParts.all { part ->
+                    normalizedName.contains(part)
+                }
+            }
+            .sortedWith(
+                compareBy<ExerciseDefinition> { exercise ->
+                    val normalizedName =
+                        exercise.name.normalizeForSearch()
+
+                    when {
+                        normalizedName.startsWith(firstQueryPart) -> {
+                            0
+                        }
+
+                        normalizedName
+                            .split(" ")
+                            .any { word ->
+                                word.startsWith(firstQueryPart)
+                            } -> {
+                            1
+                        }
+
+                        else -> {
+                            2
+                        }
+                    }
+                }.thenBy { exercise ->
+                    exercise.name.normalizeForSearch()
+                }
+            )
+    }
+
+    private fun String.normalizeForSearch(): String {
+        return trim()
+            .lowercase()
+            .replace('ё', 'е')
+            .replace(
+                regex = Regex("""\s+"""),
+                replacement = " ",
+            )
+    }
+
     private fun launchOperation(
         block: suspend () -> Unit,
     ) {
@@ -280,7 +382,9 @@ class WorkoutEditorViewModel @Inject constructor(
         transform: (WorkoutExerciseSetDraft) -> WorkoutExerciseSetDraft,
     ) {
         setDrafts.update { currentDrafts ->
-            val currentDraft = currentDrafts[workoutExerciseSetId] ?: WorkoutExerciseSetDraft()
+            val currentDraft =
+                currentDrafts[workoutExerciseSetId]
+                    ?: WorkoutExerciseSetDraft()
 
             currentDrafts + (
                     workoutExerciseSetId to transform(currentDraft)
@@ -370,7 +474,8 @@ class WorkoutEditorViewModel @Inject constructor(
             return
         }
 
-        val weightValue = (parsedWeight as ParsedNumber.Valid).value
+        val weightValue =
+            (parsedWeight as ParsedNumber.Valid).value
 
         launchOperation {
             updateWorkoutExerciseSetUseCase(
@@ -418,7 +523,8 @@ class WorkoutEditorViewModel @Inject constructor(
             return
         }
 
-        val durationSeconds = (parsedDuration as ParsedNumber.Valid).value
+        val durationSeconds =
+            (parsedDuration as ParsedNumber.Valid).value
 
         launchOperation {
             updateWorkoutExerciseSetUseCase(
@@ -426,6 +532,18 @@ class WorkoutEditorViewModel @Inject constructor(
                     setId = workoutExerciseSetId,
                     durationSeconds = durationSeconds,
                 )
+            )
+        }
+    }
+
+    private fun updateExerciseChecked(
+        workoutExerciseId: Long,
+        isChecked: Boolean,
+    ) {
+        launchOperation {
+            toggleWorkoutExerciseCheckedUseCase(
+                workoutExerciseId = workoutExerciseId,
+                isChecked = isChecked,
             )
         }
     }
@@ -440,11 +558,15 @@ class WorkoutEditorViewModel @Inject constructor(
     }
 
     private fun String.isDigitsOnlyOrBlank(): Boolean {
-        return all { character -> character.isDigit() }
+        return all { character ->
+            character.isDigit()
+        }
     }
 
     private fun String.isDecimalDraft(): Boolean {
-        return isEmpty() || matches(Regex("""\d*([.,]\d*)?"""))
+        return isEmpty() || matches(
+            Regex("""\d*([.,]\d*)?""")
+        )
     }
 
     private fun String.parseNullableInt(): ParsedNumber<Int> {
@@ -453,7 +575,9 @@ class WorkoutEditorViewModel @Inject constructor(
         }
 
         return toIntOrNull()
-            ?.let { value -> ParsedNumber.Valid(value) }
+            ?.let { value ->
+                ParsedNumber.Valid(value)
+            }
             ?: ParsedNumber.Invalid
     }
 
@@ -468,19 +592,14 @@ class WorkoutEditorViewModel @Inject constructor(
 
         return replace(',', '.')
             .toDoubleOrNull()
-            ?.let { value -> ParsedNumber.Valid(value) }
+            ?.let { value ->
+                ParsedNumber.Valid(value)
+            }
             ?: ParsedNumber.Invalid
     }
-
-    private fun updateExerciseChecked(
-        workoutExerciseId: Long,
-        isChecked: Boolean,
-    ) {
-        launchOperation {
-            toggleWorkoutExerciseCheckedUseCase(
-                workoutExerciseId = workoutExerciseId,
-                isChecked = isChecked,
-            )
-        }
-    }
 }
+
+private data class AddExercisePickerState(
+    val query: String,
+    val exercises: List<ExerciseDefinition>,
+)
