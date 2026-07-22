@@ -49,6 +49,10 @@ class ExerciseCatalogViewModel @Inject constructor(
 
     private var imagePickerExerciseDefinitionId: Long? = null
 
+    private var imageViewerExerciseDefinitionIdAfterPicker: Long? = null
+
+    private val imageViewerState = MutableStateFlow(ExerciseImageViewerState())
+
     val uiState: StateFlow<ExerciseCatalogUiState> =
         combine(
             combine(
@@ -67,7 +71,8 @@ class ExerciseCatalogViewModel @Inject constructor(
                 )
             },
             selectedFilterTagIds,
-        ) { combinedState, filterTagIds ->
+            imageViewerState,
+        ) { combinedState, filterTagIds, imageViewer ->
 
             val filteredExercises = if (filterTagIds.isEmpty()) {
                 combinedState.exercises
@@ -85,6 +90,7 @@ class ExerciseCatalogViewModel @Inject constructor(
                 editor = combinedState.editor,
                 tagEditor = combinedState.tagEditor,
                 alternativeEditor = combinedState.alternativeEditor,
+                imageViewer = imageViewer,
             )
         }.stateIn(
             scope = viewModelScope,
@@ -273,16 +279,47 @@ class ExerciseCatalogViewModel @Inject constructor(
         }
     }
 
-    fun onPrepareAddImagesClick(exercise: ExerciseDefinition) {
+    fun onOpenImageViewer(exerciseDefinitionId: Long) {
+        if (exerciseDefinitionId <= 0L) {
+            return
+        }
+
+        imageViewerState.value = ExerciseImageViewerState(
+            exerciseDefinitionId = exerciseDefinitionId,
+        )
+    }
+
+    fun onDismissImageViewer() {
+        imageViewerState.value = ExerciseImageViewerState()
+    }
+
+    fun onPrepareAddImagesClick(
+        exercise: ExerciseDefinition,
+        reopenViewerAfterSelection: Boolean = false,
+    ) {
         imagePickerExerciseDefinitionId = exercise.id
+
+        imageViewerExerciseDefinitionIdAfterPicker = exercise.id
+            .takeIf { reopenViewerAfterSelection }
     }
 
     fun onImagesSelected(uriStrings: List<String>) {
-        val exerciseDefinitionId = imagePickerExerciseDefinitionId ?: return
+        val exerciseDefinitionId =
+            imagePickerExerciseDefinitionId ?: return
+
+        val viewerExerciseDefinitionId =
+            imageViewerExerciseDefinitionIdAfterPicker
 
         imagePickerExerciseDefinitionId = null
+        imageViewerExerciseDefinitionIdAfterPicker = null
 
         if (uriStrings.isEmpty()) {
+            viewerExerciseDefinitionId?.let { exerciseId ->
+                imageViewerState.value = ExerciseImageViewerState(
+                    exerciseDefinitionId = exerciseId,
+                )
+            }
+
             return
         }
 
@@ -291,6 +328,12 @@ class ExerciseCatalogViewModel @Inject constructor(
                 exerciseDefinitionId = exerciseDefinitionId,
                 sourceUris = uriStrings,
             )
+
+            viewerExerciseDefinitionId?.let { exerciseId ->
+                imageViewerState.value = ExerciseImageViewerState(
+                    exerciseDefinitionId = exerciseId,
+                )
+            }
         }
     }
 
@@ -343,6 +386,7 @@ data class ExerciseCatalogUiState(
     val editor: ExerciseEditorState = ExerciseEditorState(),
     val tagEditor: ExerciseTagEditorState = ExerciseTagEditorState(),
     val alternativeEditor: ExerciseAlternativeEditorState = ExerciseAlternativeEditorState(),
+    val imageViewer: ExerciseImageViewerState = ExerciseImageViewerState(),
 )
 
 data class ExerciseEditorState(
@@ -372,3 +416,10 @@ data class ExerciseAlternativeEditorState(
     val exerciseName: String = "",
     val selectedAlternativeExerciseDefinitionIds: Set<Long> = emptySet(),
 )
+
+data class ExerciseImageViewerState(
+    val exerciseDefinitionId: Long? = null,
+) {
+    val isVisible: Boolean
+        get() = exerciseDefinitionId != null
+}

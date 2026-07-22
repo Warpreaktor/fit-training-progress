@@ -34,7 +34,6 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SegmentedButtonDefaults.Icon
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -89,10 +88,16 @@ fun ExerciseCatalogRoute(
         onDismissAlternativeEditor = viewModel::onDismissAlternativeEditor,
         onToggleAlternativeSelection = viewModel::onToggleAlternativeSelection,
         onSaveExerciseAlternativesClick = viewModel::onSaveExerciseAlternativesClick,
-        onAddImagesClick = { exercise ->
-            viewModel.onPrepareAddImagesClick(exercise)
+        onAddImagesClick = { exercise, reopenViewerAfterSelection ->
+            viewModel.onPrepareAddImagesClick(
+                exercise = exercise,
+                reopenViewerAfterSelection = reopenViewerAfterSelection,
+            )
+
             imagePickerLauncher.launch("image/*")
         },
+        onOpenImageViewer = viewModel::onOpenImageViewer,
+        onDismissImageViewer = viewModel::onDismissImageViewer,
         onSetCoverImageClick = viewModel::onSetCoverImageClick,
         onDeleteExerciseImageClick = viewModel::onDeleteExerciseImageClick,
     )
@@ -122,7 +127,9 @@ fun ExerciseCatalogScreen(
     onDismissAlternativeEditor: () -> Unit,
     onToggleAlternativeSelection: (Long) -> Unit,
     onSaveExerciseAlternativesClick: () -> Unit,
-    onAddImagesClick: (ExerciseDefinition) -> Unit,
+    onAddImagesClick: (ExerciseDefinition, Boolean) -> Unit,
+    onOpenImageViewer: (Long) -> Unit,
+    onDismissImageViewer: () -> Unit,
     onSetCoverImageClick: (Long, Long) -> Unit,
     onDeleteExerciseImageClick: (Long, Long) -> Unit,
 ) {
@@ -204,16 +211,57 @@ fun ExerciseCatalogScreen(
                             onEditTagsClick = { onEditExerciseTagsClick(exercise) },
                             onEditAlternativesClick = { onEditExerciseAlternativesClick(exercise) },
                             onArchiveClick = { onArchiveExerciseClick(exercise.id) },
-                            onAddImagesClick = { onAddImagesClick(exercise) },
-                            onSetCoverImageClick = { imageId ->
-                                onSetCoverImageClick(exercise.id, imageId)
-                            },
-                            onDeleteImageClick = { imageId ->
-                                onDeleteExerciseImageClick(exercise.id, imageId)
+                            onImageClick = {
+                                if (exercise.images.isEmpty()) {
+                                    onAddImagesClick(
+                                        exercise,
+                                        false,
+                                    )
+                                } else {
+                                    onOpenImageViewer(exercise.id)
+                                }
                             },
                         )
                     }
                 }
+            }
+
+            val imageViewerExercise = uiState.imageViewer.exerciseDefinitionId
+                ?.let { exerciseDefinitionId ->
+                    uiState.allExercises.firstOrNull { exercise ->
+                        exercise.id == exerciseDefinitionId
+                    }
+                }
+
+            if (uiState.imageViewer.isVisible && imageViewerExercise != null) {
+                ExerciseImageViewer(
+                    exercise = imageViewerExercise,
+                    onDismiss = onDismissImageViewer,
+                    onAddImagesClick = {
+                        onDismissImageViewer()
+
+                        onAddImagesClick(
+                            imageViewerExercise,
+                            true,
+                        )
+                    },
+                    onSetCoverClick = { imageId ->
+                        onSetCoverImageClick(
+                            imageViewerExercise.id,
+                            imageId,
+                        )
+                    },
+                    onDeleteClick = { imageId ->
+                        if (imageViewerExercise.images.size == 1) {
+                            onDismissImageViewer()
+                        }
+
+                        onDeleteExerciseImageClick(
+                            imageViewerExercise.id,
+                            imageId,
+                        )
+                    },
+                )
             }
         }
     }
@@ -256,10 +304,8 @@ private fun ExerciseCatalogItem(
     onEditClick: () -> Unit,
     onEditTagsClick: () -> Unit,
     onEditAlternativesClick: () -> Unit,
-    onAddImagesClick: () -> Unit,
-    onSetCoverImageClick: (Long) -> Unit,
-    onDeleteImageClick: (Long) -> Unit,
     onArchiveClick: () -> Unit,
+    onImageClick: () -> Unit,
 ) {
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(
@@ -283,7 +329,7 @@ private fun ExerciseCatalogItem(
             ExerciseCoverImage(
                 coverImageUri = exercise.images.firstOrNull { image -> image.isCover }?.uri
                     ?: exercise.images.firstOrNull()?.uri,
-                onClick = onAddImagesClick,
+                onClick = onImageClick,
             )
 
             if (exercise.tags.isNotEmpty()) {
