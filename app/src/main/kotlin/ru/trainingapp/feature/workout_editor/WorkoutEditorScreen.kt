@@ -1,6 +1,7 @@
 package ru.trainingapp.feature.workout_editor
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -58,14 +59,19 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.outlined.Image
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import coil.compose.AsyncImage
 import ru.trainingapp.core.model.WeightUnit
 import ru.trainingapp.core.model.ExerciseDefinition
 import ru.trainingapp.core.model.WorkoutExerciseSet
@@ -818,18 +824,58 @@ private fun ExerciseDefinitionListItem(
     exercise: ExerciseDefinition,
     onClick: () -> Unit,
 ) {
+    val coverImageUri = exercise.images
+        .firstOrNull { image -> image.isCover }
+        ?.uri
+        ?: exercise.images.firstOrNull()?.uri
+
     ListItem(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick),
+        leadingContent = {
+            ExerciseDefinitionThumbnail(
+                imageUri = coverImageUri,
+                exerciseName = exercise.name,
+            )
+        },
         headlineContent = {
             Text(
                 text = exercise.name,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
+                style = MaterialTheme.typography.bodyLarge,
             )
         },
     )
+}
+
+@Composable
+private fun ExerciseDefinitionThumbnail(
+    imageUri: String?,
+    exerciseName: String,
+) {
+    Box(
+        modifier = Modifier
+            .size(56.dp)
+            .clip(RoundedCornerShape(8.dp))
+            .background(MaterialTheme.colorScheme.surfaceVariant),
+        contentAlignment = Alignment.Center,
+    ) {
+        if (imageUri != null) {
+            AsyncImage(
+                model = imageUri,
+                contentDescription = "Изображение упражнения $exerciseName",
+                modifier = Modifier.fillMaxSize(),
+                contentScale = ContentScale.Crop,
+            )
+        } else {
+            Icon(
+                imageVector = Icons.Outlined.Image,
+                contentDescription = null,
+                modifier = Modifier.size(24.dp),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
 }
 
 private fun buildSetDescription(
