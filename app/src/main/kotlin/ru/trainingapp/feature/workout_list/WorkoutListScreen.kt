@@ -17,12 +17,15 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.KeyboardArrowDown
 import androidx.compose.material.icons.outlined.KeyboardArrowUp
+import androidx.compose.material.icons.outlined.MoreVert
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Card
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.Icon
@@ -35,6 +38,9 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -224,6 +230,10 @@ private fun WorkoutCard(
     onMoveUpClick: () -> Unit,
     onMoveDownClick: () -> Unit,
 ) {
+    var isMenuExpanded by remember {
+        mutableStateOf(false)
+    }
+
     Card(
         modifier = Modifier.fillMaxWidth(),
     ) {
@@ -290,28 +300,48 @@ private fun WorkoutCard(
                         contentDescription = "Переместить тренировку ниже",
                     )
                 }
+
+                IconButton(
+                    onClick = {
+                        isMenuExpanded = true
+                    }
+                ) {
+                    Icon(
+                        imageVector = Icons.Outlined.MoreVert,
+                        contentDescription = "Больше действий>",
+                    )
+                }
+
+                DropdownMenu(
+                    expanded = isMenuExpanded,
+                    onDismissRequest = {
+                        isMenuExpanded = false
+                    },
+                ) {
+                    DropdownMenuItem(
+                        text = {
+                            Text("Копировать")
+                        },
+                        onClick = {
+                            isMenuExpanded = false
+                            onDuplicateClick()
+                        },
+                    )
+
+                    DropdownMenuItem(
+                        text = {
+                            Text("В архив")
+                        },
+                        onClick = {
+                            isMenuExpanded = false
+                            onArchiveClick()
+                        },
+                    )
+                }
             }
         }
 
         Spacer(modifier = Modifier.height(4.dp))
-
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.End,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Spacer(modifier = Modifier.width(4.dp))
-
-            TextButton(onClick = onDuplicateClick) {
-                Text("Копия")
-            }
-
-            Spacer(modifier = Modifier.width(4.dp))
-
-            TextButton(onClick = onArchiveClick) {
-                Text("Архив")
-            }
-        }
 
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -335,6 +365,7 @@ private fun WorkoutCard(
             }
         }
     }
+
 }
 
 @Composable

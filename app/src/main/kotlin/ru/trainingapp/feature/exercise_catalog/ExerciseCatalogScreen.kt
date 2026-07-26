@@ -21,6 +21,7 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Image
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
@@ -369,8 +370,11 @@ private fun ExerciseCatalogItem(
 
                 Spacer(modifier = Modifier.width(4.dp))
 
-                TextButton(onClick = onArchiveClick) {
-                    Text("Архив")
+                IconButton(onClick = onArchiveClick) {
+                    Icon(
+                        imageVector = Icons.Outlined.Delete,
+                        contentDescription = "удалить упражненение"
+                    )
                 }
             }
         }
