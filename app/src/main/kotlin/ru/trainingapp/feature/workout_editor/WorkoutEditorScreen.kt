@@ -362,88 +362,96 @@ private fun WorkoutExerciseCard(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            Row(
+            Column(
                 modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
+                verticalArrangement = Arrangement.spacedBy(4.dp),
             ) {
-                Checkbox(
-                    checked = exercise.isChecked,
-                    onCheckedChange = { isChecked ->
-                        onAction(
-                            WorkoutEditorAction.ExerciseCheckedChanged(
-                                workoutExerciseId = exercise.id,
-                                isChecked = isChecked,
-                            )
-                        )
-                    },
-                )
-
                 Row(
-                    modifier = Modifier
-                        .weight(1f)
-                        .clickable(onClick = onToggleExpanded)
-                        .padding(vertical = 8.dp),
+                    modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Column(
-                        modifier = Modifier.weight(1f),
+                    Checkbox(
+                        checked = exercise.isChecked,
+                        onCheckedChange = { isChecked ->
+                            onAction(
+                                WorkoutEditorAction.ExerciseCheckedChanged(
+                                    workoutExerciseId = exercise.id,
+                                    isChecked = isChecked,
+                                )
+                            )
+                        },
+                    )
+
+                    Row(
+                        modifier = Modifier
+                            .weight(1f)
+                            .clickable(onClick = onToggleExpanded)
+                            .padding(vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
                     ) {
                         Text(
                             text = exercise.exerciseName,
+                            modifier = Modifier.weight(1f),
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.SemiBold,
-                            maxLines = 2,
-                            overflow = TextOverflow.Ellipsis,
                         )
 
-                        Text(
-                            text = "Подходов: ${exercise.sets.size}",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        Icon(
+                            imageVector = if (isExpanded) {
+                                Icons.Default.ExpandLess
+                            } else {
+                                Icons.Default.ExpandMore
+                            },
+                            contentDescription = if (isExpanded) {
+                                "Свернуть упражнение"
+                            } else {
+                                "Развернуть упражнение"
+                            },
+                        )
+                    }
+                }
+
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(start = 48.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        text = "Подходов: ${exercise.sets.size}",
+                        modifier = Modifier.weight(1f),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+
+                    IconButton(
+                        onClick = onMoveUpClick,
+                        enabled = canMoveUp,
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.KeyboardArrowUp,
+                            contentDescription = "Поднять упражнение",
                         )
                     }
 
-                    Icon(
-                        imageVector = if (isExpanded) {
-                            Icons.Default.ExpandLess
-                        } else {
-                            Icons.Default.ExpandMore
-                        },
-                        contentDescription = if (isExpanded) {
-                            "Свернуть упражнение"
-                        } else {
-                            "Развернуть упражнение"
-                        },
-                    )
-                }
+                    IconButton(
+                        onClick = onMoveDownClick,
+                        enabled = canMoveDown,
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.KeyboardArrowDown,
+                            contentDescription = "Опустить упражнение",
+                        )
+                    }
 
-                IconButton(
-                    onClick = onMoveUpClick,
-                    enabled = canMoveUp,
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.KeyboardArrowUp,
-                        contentDescription = "Поднять упражнение",
-                    )
-                }
-
-                IconButton(
-                    onClick = onMoveDownClick,
-                    enabled = canMoveDown,
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.KeyboardArrowDown,
-                        contentDescription = "Опустить упражнение",
-                    )
-                }
-
-                IconButton(
-                    onClick = onArchiveClick,
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Delete,
-                        contentDescription = "Удалить упражнение из тренировки",
-                    )
+                    IconButton(
+                        onClick = onArchiveClick,
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Delete,
+                            contentDescription = "Удалить упражнение из тренировки",
+                        )
+                    }
                 }
             }
 
