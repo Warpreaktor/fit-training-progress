@@ -66,6 +66,20 @@ interface TagDao {
         exerciseDefinitionId: Long,
     ): Flow<List<TagEntity>>
 
+    @Query(
+        """
+        SELECT t.*
+        FROM tags t
+        INNER JOIN exercise_definition_tag_cross_refs ref
+            ON ref.tagId = t.id
+        WHERE ref.exerciseDefinitionId = :exerciseDefinitionId
+        ORDER BY t.name COLLATE NOCASE ASC
+        """
+    )
+    suspend fun getTagsByExerciseDefinitionId(
+        exerciseDefinitionId: Long,
+    ): List<TagEntity>
+
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun insertTag(entity: TagEntity): Long
 

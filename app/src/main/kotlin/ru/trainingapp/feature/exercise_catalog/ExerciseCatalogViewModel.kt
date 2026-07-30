@@ -18,6 +18,8 @@ import ru.trainingapp.core.domain.exercise.ReplaceExerciseDefinitionAlternatives
 import ru.trainingapp.core.domain.exercise.ReplaceExerciseDefinitionTagsUseCase
 import ru.trainingapp.core.domain.exercise.SetExerciseCoverImageUseCase
 import ru.trainingapp.core.domain.exercise.UpdateExerciseDefinitionUseCase
+import ru.trainingapp.core.domain.exportimport.ExportExerciseUseCase
+import ru.trainingapp.core.domain.exportimport.ImportTrainingPackUseCase
 import ru.trainingapp.core.domain.tag.CreateTagUseCase
 import ru.trainingapp.core.domain.tag.ObserveTagsUseCase
 import ru.trainingapp.core.model.ExerciseDefinition
@@ -37,6 +39,8 @@ class ExerciseCatalogViewModel @Inject constructor(
     private val addExerciseImagesUseCase: AddExerciseImagesUseCase,
     private val setExerciseCoverImageUseCase: SetExerciseCoverImageUseCase,
     private val deleteExerciseImageUseCase: DeleteExerciseImageUseCase,
+    private val exportExerciseUseCase: ExportExerciseUseCase,
+    private val importTrainingPackUseCase: ImportTrainingPackUseCase,
 ) : ViewModel() {
 
     private val editorState = MutableStateFlow(ExerciseEditorState())
@@ -52,6 +56,10 @@ class ExerciseCatalogViewModel @Inject constructor(
     private var imageViewerExerciseDefinitionIdAfterPicker: Long? = null
 
     private val imageViewerState = MutableStateFlow(ExerciseImageViewerState())
+
+    private val transferState = MutableStateFlow(ExerciseTransferState())
+
+    private var pendingExportExerciseDefinitionId: Long? = null
 
     val uiState: StateFlow<ExerciseCatalogUiState> =
         combine(
@@ -72,7 +80,8 @@ class ExerciseCatalogViewModel @Inject constructor(
             },
             selectedFilterTagIds,
             imageViewerState,
-        ) { combinedState, filterTagIds, imageViewer ->
+            transferState,
+        ) { combinedState, filterTagIds, imageViewer, transfer ->
 
             val filteredExercises = if (filterTagIds.isEmpty()) {
                 combinedState.exercises
@@ -91,6 +100,7 @@ class ExerciseCatalogViewModel @Inject constructor(
                 tagEditor = combinedState.tagEditor,
                 alternativeEditor = combinedState.alternativeEditor,
                 imageViewer = imageViewer,
+                transfer = transfer,
             )
         }.stateIn(
             scope = viewModelScope,
@@ -337,6 +347,74 @@ class ExerciseCatalogViewModel @Inject constructor(
         }
     }
 
+    fun onPrepareExportExercise(exerciseDefinitionId: Long) {
+        pendingExportExerciseDefinitionId = exerciseDefinitionId
+    }
+
+    fun onExportDocumentCreated(destinationUri: String?) {
+        val exerciseDefinitionId = pendingExportExerciseDefinitionId
+        pendingExportExerciseDefinitionId = null
+
+        if (destinationUri == null || exerciseDefinitionId == null) {
+            return
+        }
+
+        viewModelScope.launch {
+            transferState.value = ExerciseTransferState(isInProgress = true)
+
+            transferState.value = runCatching {
+                exportExerciseUseCase(
+                    exerciseDefinitionId = exerciseDefinitionId,
+                    destinationUri = destinationUri,
+                )
+
+                ExerciseTransferState(
+                    message = "Упражнение экспортировано",
+                )
+            }.getOrElse { exception ->
+                ExerciseTransferState(
+                    message = exception.message
+                        ?: "Не удалось экспортировать упражнение",
+                )
+            }
+        }
+    }
+
+    fun onImportDocumentSelected(sourceUri: String?) {
+        if (sourceUri == null) {
+            return
+        }
+
+        viewModelScope.launch {
+            transferState.value = ExerciseTransferState(isInProgress = true)
+
+            transferState.value = runCatching {
+                val result = importTrainingPackUseCase(sourceUri)
+
+                ExerciseTransferState(
+                    message = buildString {
+                        append("Импортировано упражнений: ${result.createdExercises}")
+                        append(", тегов: ${result.createdTags}")
+                        append(", картинок: ${result.createdImages}")
+
+                        if (result.warnings.isNotEmpty()) {
+                            append(", предупреждений: ${result.warnings.size}")
+                        }
+                    },
+                )
+            }.getOrElse { exception ->
+                ExerciseTransferState(
+                    message = exception.message
+                        ?: "Не удалось импортировать упражнение",
+                )
+            }
+        }
+    }
+
+    fun onTransferMessageShown() {
+        transferState.value = transferState.value.copy(message = null)
+    }
+
     fun onSetCoverImageClick(
         exerciseDefinitionId: Long,
         imageId: Long,
@@ -387,6 +465,7 @@ data class ExerciseCatalogUiState(
     val tagEditor: ExerciseTagEditorState = ExerciseTagEditorState(),
     val alternativeEditor: ExerciseAlternativeEditorState = ExerciseAlternativeEditorState(),
     val imageViewer: ExerciseImageViewerState = ExerciseImageViewerState(),
+    val transfer: ExerciseTransferState = ExerciseTransferState(),
 )
 
 data class ExerciseEditorState(
@@ -423,3 +502,8 @@ data class ExerciseImageViewerState(
     val isVisible: Boolean
         get() = exerciseDefinitionId != null
 }
+
+data class ExerciseTransferState(
+    val isInProgress: Boolean = false,
+    val message: String? = null,
+)

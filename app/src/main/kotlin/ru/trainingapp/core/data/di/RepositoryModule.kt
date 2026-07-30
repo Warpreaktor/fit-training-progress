@@ -5,10 +5,12 @@ import dagger.Module
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import ru.trainingapp.core.data.exercise.RoomExerciseDefinitionRepository
+import ru.trainingapp.core.data.exportimport.RoomTrainingPackRepository
 import ru.trainingapp.core.data.tag.RoomTagRepository
 import ru.trainingapp.core.data.workout.RoomWorkoutRepository
 import ru.trainingapp.core.domain.repository.ExerciseDefinitionRepository
 import ru.trainingapp.core.domain.repository.TagRepository
+import ru.trainingapp.core.domain.repository.TrainingPackRepository
 import ru.trainingapp.core.domain.repository.WorkoutRepository
 import javax.inject.Singleton
 
@@ -21,6 +23,12 @@ abstract class RepositoryModule {
     abstract fun bindExerciseDefinitionRepository(
         implementation: RoomExerciseDefinitionRepository,
     ): ExerciseDefinitionRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindTrainingPackRepository(
+        implementation: RoomTrainingPackRepository,
+    ): TrainingPackRepository
 
     @Binds
     @Singleton

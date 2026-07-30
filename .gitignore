@@ -1,5 +1,6 @@
 .gradle/
 /local.properties
+.idea
 /.idea/workspace.xml
 /.idea/caches/
 /.idea/libraries/
@@ -12,3 +13,9 @@
 *.aab
 *.iml
 app/schemas/
+/app/build/generated/ksp/debug/java/
+/app/build/generated/ksp/debug/kotlin/
+/app/build/generated/ap_generated_sources/debug/out/
+/build
+/app/build/
+/gradle/wrapper/gradle-wrapper.jar

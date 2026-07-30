@@ -46,6 +46,43 @@ class ExerciseImageFileStorage @Inject constructor(
         Uri.fromFile(targetFile).toString()
     }
 
+    suspend fun copyFileToPrivateStorage(
+        exerciseDefinitionId: Long,
+        sourceFile: File,
+        extension: String,
+    ): String = withContext(Dispatchers.IO) {
+        require(sourceFile.isFile) {
+            "Файл изображения не найден"
+        }
+
+        val safeExtension = extension
+            .lowercase()
+            .takeIf { value -> value.matches(Regex("[a-z0-9]{1,8}")) }
+            ?: "jpg"
+
+        val directory = File(
+            context.filesDir,
+            "exercise_images/$exerciseDefinitionId",
+        )
+
+        if (!directory.exists()) {
+            directory.mkdirs()
+        }
+
+        val targetFile = File(
+            directory,
+            "${System.currentTimeMillis()}_${UUID.randomUUID()}.$safeExtension",
+        )
+
+        sourceFile.inputStream().use { input ->
+            targetFile.outputStream().use { output ->
+                input.copyTo(output)
+            }
+        }
+
+        Uri.fromFile(targetFile).toString()
+    }
+
     suspend fun deleteByUri(
         uriString: String,
     ) = withContext(Dispatchers.IO) {

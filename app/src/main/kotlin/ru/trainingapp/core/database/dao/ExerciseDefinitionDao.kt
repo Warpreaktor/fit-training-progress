@@ -34,6 +34,23 @@ interface ExerciseDefinitionDao {
     @Insert
     suspend fun insertExerciseDefinition(entity: ExerciseDefinitionEntity)
 
+    @Query(
+        """
+        SELECT *
+        FROM exercise_definitions
+        WHERE name = :name COLLATE NOCASE
+        LIMIT 1
+        """
+    )
+    suspend fun getExerciseDefinitionByName(
+        name: String,
+    ): ExerciseDefinitionEntity?
+
+    @Insert
+    suspend fun insertExerciseDefinitionAndGetId(
+        entity: ExerciseDefinitionEntity,
+    ): Long
+
     @Update
     suspend fun updateExerciseDefinition(entity: ExerciseDefinitionEntity)
 

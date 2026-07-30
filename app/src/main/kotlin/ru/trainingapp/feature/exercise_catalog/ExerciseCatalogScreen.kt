@@ -21,25 +21,34 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Image
+import androidx.compose.material.icons.outlined.MoreVert
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Card
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -58,6 +67,18 @@ fun ExerciseCatalogRoute(
     viewModel: ExerciseCatalogViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+
+    val exportExerciseLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CreateDocument("application/zip"),
+    ) { uri ->
+        viewModel.onExportDocumentCreated(uri?.toString())
+    }
+
+    val importExerciseLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument(),
+    ) { uri ->
+        viewModel.onImportDocumentSelected(uri?.toString())
+    }
 
     val imagePickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetMultipleContents(),
@@ -101,6 +122,20 @@ fun ExerciseCatalogRoute(
         onDismissImageViewer = viewModel::onDismissImageViewer,
         onSetCoverImageClick = viewModel::onSetCoverImageClick,
         onDeleteExerciseImageClick = viewModel::onDeleteExerciseImageClick,
+        onExportExerciseClick = { exercise ->
+            viewModel.onPrepareExportExercise(exercise.id)
+            exportExerciseLauncher.launch(buildExercisePackFileName(exercise.name))
+        },
+        onImportExerciseClick = {
+            importExerciseLauncher.launch(
+                arrayOf(
+                    "application/zip",
+                    "application/octet-stream",
+                    "*/*",
+                )
+            )
+        },
+        onTransferMessageShown = viewModel::onTransferMessageShown,
     )
 }
 
@@ -133,7 +168,19 @@ fun ExerciseCatalogScreen(
     onDismissImageViewer: () -> Unit,
     onSetCoverImageClick: (Long, Long) -> Unit,
     onDeleteExerciseImageClick: (Long, Long) -> Unit,
+    onExportExerciseClick: (ExerciseDefinition) -> Unit,
+    onImportExerciseClick: () -> Unit,
+    onTransferMessageShown: () -> Unit,
 ) {
+    val snackbarHostState = remember { SnackbarHostState() }
+
+    LaunchedEffect(uiState.transfer.message) {
+        val message = uiState.transfer.message ?: return@LaunchedEffect
+
+        snackbarHostState.showSnackbar(message)
+        onTransferMessageShown()
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -145,6 +192,7 @@ fun ExerciseCatalogScreen(
                 },
             )
         },
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         floatingActionButton = {
             ExtendedFloatingActionButton(
                 onClick = onAddExerciseClick,
@@ -160,6 +208,12 @@ fun ExerciseCatalogScreen(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
+            if (uiState.transfer.isInProgress) {
+                LinearProgressIndicator(
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
+
             if (uiState.allTags.isNotEmpty()) {
                 TagFilterRow(
                     tags = uiState.allTags,
@@ -196,6 +250,13 @@ fun ExerciseCatalogScreen(
                         },
                         style = MaterialTheme.typography.bodyMedium,
                     )
+
+                    TextButton(
+                        onClick = onImportExerciseClick,
+                        enabled = !uiState.transfer.isInProgress,
+                    ) {
+                        Text("Загрузить упражнение")
+                    }
                 }
             } else {
                 LazyColumn(
@@ -212,6 +273,8 @@ fun ExerciseCatalogScreen(
                             onEditTagsClick = { onEditExerciseTagsClick(exercise) },
                             onEditAlternativesClick = { onEditExerciseAlternativesClick(exercise) },
                             onArchiveClick = { onArchiveExerciseClick(exercise.id) },
+                            onExportClick = { onExportExerciseClick(exercise) },
+                            onImportClick = onImportExerciseClick,
                             onImageClick = {
                                 if (exercise.images.isEmpty()) {
                                     onAddImagesClick(
@@ -306,17 +369,96 @@ private fun ExerciseCatalogItem(
     onEditTagsClick: () -> Unit,
     onEditAlternativesClick: () -> Unit,
     onArchiveClick: () -> Unit,
+    onExportClick: () -> Unit,
+    onImportClick: () -> Unit,
     onImageClick: () -> Unit,
 ) {
+    var isMenuExpanded by remember { mutableStateOf(false) }
+
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(
             modifier = Modifier.padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            Text(
-                text = exercise.name,
-                style = MaterialTheme.typography.titleMedium,
-            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.Top,
+            ) {
+                Text(
+                    text = exercise.name,
+                    modifier = Modifier.weight(1f),
+                    style = MaterialTheme.typography.titleMedium,
+                )
+
+                Box {
+                    IconButton(
+                        onClick = {
+                            isMenuExpanded = true
+                        },
+                    ) {
+                        Icon(
+                            imageVector = Icons.Outlined.MoreVert,
+                            contentDescription = "Действия с упражнением",
+                        )
+                    }
+
+                    DropdownMenu(
+                        expanded = isMenuExpanded,
+                        onDismissRequest = {
+                            isMenuExpanded = false
+                        },
+                    ) {
+                        DropdownMenuItem(
+                            text = { Text("Изменить") },
+                            onClick = {
+                                isMenuExpanded = false
+                                onEditClick()
+                            },
+                        )
+
+                        DropdownMenuItem(
+                            text = { Text("Теги") },
+                            onClick = {
+                                isMenuExpanded = false
+                                onEditTagsClick()
+                            },
+                        )
+
+                        DropdownMenuItem(
+                            text = { Text("Альтернативы") },
+                            onClick = {
+                                isMenuExpanded = false
+                                onEditAlternativesClick()
+                            },
+                        )
+
+                        DropdownMenuItem(
+                            text = { Text("Выгрузить") },
+                            onClick = {
+                                isMenuExpanded = false
+                                onExportClick()
+                            },
+                        )
+
+                        DropdownMenuItem(
+                            text = { Text("Загрузить упражнение") },
+                            onClick = {
+                                isMenuExpanded = false
+                                onImportClick()
+                            },
+                        )
+
+                        DropdownMenuItem(
+                            text = { Text("В архив") },
+                            onClick = {
+                                isMenuExpanded = false
+                                onArchiveClick()
+                            },
+                        )
+                    }
+                }
+            }
 
             exercise.description
                 .takeIf { it.isNotBlank() }
@@ -346,36 +488,6 @@ private fun ExerciseCatalogItem(
                     }",
                     style = MaterialTheme.typography.bodySmall,
                 )
-            }
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.End,
-            ) {
-                TextButton(onClick = onEditClick) {
-                    Text("Изменить")
-                }
-
-                Spacer(modifier = Modifier.width(4.dp))
-
-                TextButton(onClick = onEditTagsClick) {
-                    Text("Теги")
-                }
-
-                Spacer(modifier = Modifier.width(4.dp))
-
-                TextButton(onClick = onEditAlternativesClick) {
-                    Text("Альт.")
-                }
-
-                Spacer(modifier = Modifier.width(4.dp))
-
-                IconButton(onClick = onArchiveClick) {
-                    Icon(
-                        imageVector = Icons.Outlined.Delete,
-                        contentDescription = "удалить упражненение"
-                    )
-                }
             }
         }
     }
@@ -765,4 +877,13 @@ private fun ExerciseCoverImage(
             )
         }
     }
+}
+
+private fun buildExercisePackFileName(exerciseName: String): String {
+    val safeName = exerciseName
+        .replace(Regex("[\\/:*?\"<>|]"), "_")
+        .trim()
+        .ifBlank { "exercise" }
+
+    return "$safeName.zip"
 }
