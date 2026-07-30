@@ -61,11 +61,14 @@ import androidx.compose.runtime.setValue
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.ExpandLess
+import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.outlined.Image
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.lifecycle.Lifecycle
@@ -274,8 +277,16 @@ private fun WorkoutExerciseList(
         ) { exercise ->
             val index = exercises.indexOfFirst { it.id == exercise.id }
 
+            var isExpanded by rememberSaveable(exercise.id) {
+                mutableStateOf(false)
+            }
+
             WorkoutExerciseCard(
                 exercise = exercise,
+                isExpanded = isExpanded,
+                onToggleExpanded = {
+                    isExpanded = !isExpanded
+                },
                 canMoveUp = index > 0,
                 canMoveDown = index < exercises.lastIndex,
                 onMoveUpClick = {
@@ -327,6 +338,8 @@ private fun WorkoutExerciseList(
 @Composable
 private fun WorkoutExerciseCard(
     exercise: WorkoutExerciseUi,
+    isExpanded: Boolean,
+    onToggleExpanded: () -> Unit,
     canMoveUp: Boolean,
     canMoveDown: Boolean,
     onMoveUpClick: () -> Unit,
@@ -365,21 +378,42 @@ private fun WorkoutExerciseCard(
                     },
                 )
 
-                Column(
-                    modifier = Modifier.weight(1f),
+                Row(
+                    modifier = Modifier
+                        .weight(1f)
+                        .clickable(onClick = onToggleExpanded)
+                        .padding(vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Text(
-                        text = exercise.exerciseName,
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.SemiBold,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis,
-                    )
+                    Column(
+                        modifier = Modifier.weight(1f),
+                    ) {
+                        Text(
+                            text = exercise.exerciseName,
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.SemiBold,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis,
+                        )
 
-                    Text(
-                        text = "Подходов: ${exercise.sets.size}",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        Text(
+                            text = "Подходов: ${exercise.sets.size}",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+
+                    Icon(
+                        imageVector = if (isExpanded) {
+                            Icons.Default.ExpandLess
+                        } else {
+                            Icons.Default.ExpandMore
+                        },
+                        contentDescription = if (isExpanded) {
+                            "Свернуть упражнение"
+                        } else {
+                            "Развернуть упражнение"
+                        },
                     )
                 }
 
@@ -413,46 +447,50 @@ private fun WorkoutExerciseCard(
                 }
             }
 
-            if (exercise.sets.isEmpty()) {
-                EmptySetsContent()
-            } else {
-                Column(
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    exercise.sets.forEach { set ->
-                        WorkoutExerciseSetRow(
-                            set = set,
-                            onRemoveClick = { onRemoveSetClick(set.id) },
-                            onAction = onAction,
-                        )
+            if (isExpanded) {
+                if (exercise.sets.isEmpty()) {
+                    EmptySetsContent()
+                } else {
+                    Column(
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        exercise.sets.forEach { set ->
+                            WorkoutExerciseSetRow(
+                                set = set,
+                                onRemoveClick = {
+                                    onRemoveSetClick(set.id)
+                                },
+                                onAction = onAction,
+                            )
+                        }
                     }
                 }
-            }
 
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                TextButton(
-                    onClick = onAddSetClick,
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Icon(
-                        imageVector = Icons.Default.Add,
-                        contentDescription = null,
-                        modifier = Modifier.size(18.dp),
-                    )
+                    TextButton(
+                        onClick = onAddSetClick,
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Add,
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp),
+                        )
 
-                    Text(
-                        text = "Добавить подход",
-                        modifier = Modifier.padding(start = 8.dp),
-                    )
-                }
+                        Text(
+                            text = "Добавить подход",
+                            modifier = Modifier.padding(start = 8.dp),
+                        )
+                    }
 
-                TextButton(
-                    onClick = onOpenProgressClick,
-                ) {
-                    Text("Прогресс")
+                    TextButton(
+                        onClick = onOpenProgressClick,
+                    ) {
+                        Text("Прогресс")
+                    }
                 }
             }
         }
