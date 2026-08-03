@@ -15,11 +15,16 @@ fun WorkoutExerciseSetEntity.toDomain(): WorkoutExerciseSet {
         load = when (loadType) {
             WorkoutExerciseSetLoadType.WEIGHT -> WorkoutExerciseSetLoad.Weight(
                 value = weightValue,
-                unit = weightUnit ?: WeightUnit.KG,
+                unit = weightUnit
+                    ?.takeUnless { unit -> unit.isTimeUnit }
+                    ?: WeightUnit.KG,
             )
 
             WorkoutExerciseSetLoadType.TIME -> WorkoutExerciseSetLoad.Time(
                 durationSeconds = durationSeconds,
+                unit = weightUnit
+                    ?.takeIf { unit -> unit.isTimeUnit }
+                    ?: WeightUnit.SEC,
             )
         },
         createdAt = createdAt,
@@ -49,7 +54,7 @@ fun WorkoutExerciseSet.toEntity(): WorkoutExerciseSetEntity {
             reps = reps,
             loadType = WorkoutExerciseSetLoadType.TIME,
             weightValue = null,
-            weightUnit = null,
+            weightUnit = currentLoad.unit,
             durationSeconds = currentLoad.durationSeconds,
             createdAt = createdAt,
             updatedAt = updatedAt,

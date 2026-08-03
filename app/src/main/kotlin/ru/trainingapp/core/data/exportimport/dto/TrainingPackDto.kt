@@ -57,4 +57,5 @@ data class ExportWorkoutExerciseSetDto(
     val weightValue: Double? = null,
     val weightUnit: String? = null,
     val durationSeconds: Int? = null,
+    val durationUnit: String? = null,
 )

@@ -51,16 +51,7 @@ class UpdateWorkoutExerciseSetUseCase @Inject constructor(
 
             is Command.UpdateWeightUnit -> {
                 currentSet.copy(
-                    load = when (val currentLoad = currentSet.load) {
-                        is WorkoutExerciseSetLoad.Weight -> currentLoad.copy(
-                            unit = command.unit,
-                        )
-
-                        is WorkoutExerciseSetLoad.Time -> WorkoutExerciseSetLoad.Weight(
-                            value = null,
-                            unit = command.unit,
-                        )
-                    },
+                    load = currentSet.load.changeUnit(command.unit),
                 )
             }
 
@@ -69,9 +60,15 @@ class UpdateWorkoutExerciseSetUseCase @Inject constructor(
                     return
                 }
 
+                val currentTimeUnit = (currentSet.load as? WorkoutExerciseSetLoad.Time)
+                    ?.unit
+                    ?.takeIf { unit -> unit.isTimeUnit }
+                    ?: DEFAULT_TIME_UNIT
+
                 currentSet.copy(
                     load = WorkoutExerciseSetLoad.Time(
                         durationSeconds = command.durationSeconds,
+                        unit = currentTimeUnit,
                     ),
                 )
             }
@@ -125,9 +122,38 @@ class UpdateWorkoutExerciseSetUseCase @Inject constructor(
             WorkoutExerciseSetLoadType.TIME -> when (this) {
                 is WorkoutExerciseSetLoad.Weight -> WorkoutExerciseSetLoad.Time(
                     durationSeconds = null,
+                    unit = DEFAULT_TIME_UNIT,
                 )
 
                 is WorkoutExerciseSetLoad.Time -> this
+            }
+        }
+    }
+
+    private fun WorkoutExerciseSetLoad.changeUnit(
+        unit: WeightUnit,
+    ): WorkoutExerciseSetLoad {
+        return if (unit.isTimeUnit) {
+            when (this) {
+                is WorkoutExerciseSetLoad.Weight -> WorkoutExerciseSetLoad.Time(
+                    durationSeconds = null,
+                    unit = unit,
+                )
+
+                is WorkoutExerciseSetLoad.Time -> copy(
+                    unit = unit,
+                )
+            }
+        } else {
+            when (this) {
+                is WorkoutExerciseSetLoad.Weight -> copy(
+                    unit = unit,
+                )
+
+                is WorkoutExerciseSetLoad.Time -> WorkoutExerciseSetLoad.Weight(
+                    value = null,
+                    unit = unit,
+                )
             }
         }
     }
@@ -137,5 +163,6 @@ class UpdateWorkoutExerciseSetUseCase @Inject constructor(
         const val MIN_WEIGHT_VALUE = 0.0
         const val MIN_DURATION_SECONDS = 1
         val DEFAULT_WEIGHT_UNIT = WeightUnit.KG
+        val DEFAULT_TIME_UNIT = WeightUnit.SEC
     }
 }

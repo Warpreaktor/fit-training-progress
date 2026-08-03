@@ -119,7 +119,10 @@ private fun List<BestProgressResult>.resolveWeightUnitLabel(): String {
     return when (weightUnits.singleOrNull()) {
         WeightUnit.KG -> "кг"
         WeightUnit.LB -> "lb"
-        null -> "вес"
+        WeightUnit.MIN,
+        WeightUnit.SEC,
+        null,
+        -> "вес"
     }
 }
 

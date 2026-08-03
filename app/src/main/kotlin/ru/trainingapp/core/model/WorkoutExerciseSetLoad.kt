@@ -9,5 +9,6 @@ sealed interface WorkoutExerciseSetLoad {
 
     data class Time(
         val durationSeconds: Int?,
+        val unit: WeightUnit = WeightUnit.SEC,
     ) : WorkoutExerciseSetLoad
 }

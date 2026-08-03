@@ -296,6 +296,12 @@ class RoomTrainingPackRepository @Inject constructor(
             durationSeconds = durationSeconds.takeIf {
                 loadType == WorkoutExerciseSetLoadType.TIME
             },
+            durationUnit = weightUnit
+                ?.takeIf { unit ->
+                    loadType == WorkoutExerciseSetLoadType.TIME &&
+                            unit.isTimeUnit
+                }
+                ?.name,
         )
     }
 
@@ -740,10 +746,25 @@ class RoomTrainingPackRepository @Inject constructor(
                         WeightUnit.valueOf(value.uppercase())
                     }.getOrNull()
                 }
+                ?.takeUnless { unit -> unit.isTimeUnit }
+
+            val parsedDurationUnit = setDto.durationUnit
+                ?.trim()
+                ?.takeIf { value -> value.isNotBlank() }
+                ?.let { value ->
+                    runCatching {
+                        WeightUnit.valueOf(value.uppercase())
+                    }.getOrNull()
+                }
+                ?.takeIf { unit -> unit.isTimeUnit }
 
             val weightUnit = when {
-                loadType == WorkoutExerciseSetLoadType.TIME -> null
+                loadType == WorkoutExerciseSetLoadType.TIME -> {
+                    parsedDurationUnit ?: WeightUnit.SEC
+                }
+
                 parsedWeightUnit != null -> parsedWeightUnit
+
                 setDto.weightValue != null -> {
                     if (!setDto.weightUnit.isNullOrBlank()) {
                         warnings += "Для $workoutExerciseRef указана неизвестная единица веса ${setDto.weightUnit}; использован KG."

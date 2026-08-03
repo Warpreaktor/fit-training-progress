@@ -62,6 +62,7 @@ sealed interface WorkoutEditorAction {
     data class SetDurationSecondsChanged(
         val workoutExerciseSetId: Long,
         val value: String,
+        val unit: WeightUnit,
     ) : WorkoutEditorAction
 
     data class ExerciseCheckedChanged(

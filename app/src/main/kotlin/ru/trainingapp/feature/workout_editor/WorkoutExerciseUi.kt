@@ -65,8 +65,8 @@ private fun WorkoutExerciseSet.toUi(
         repsText = draft?.repsText ?: reps.toString(),
         loadType = load.toLoadType(),
         weightText = draft?.weightText ?: load.toWeightText(),
-        weightUnit = load.toWeightUnit(),
-        durationSecondsText = draft?.durationSecondsText ?: load.toDurationSecondsText(),
+        weightUnit = load.toUnit(),
+        durationSecondsText = draft?.durationSecondsText ?: load.toDurationText(),
     )
 }
 
@@ -79,26 +79,37 @@ private fun WorkoutExerciseSetLoad.toLoadType(): WorkoutExerciseSetLoadType {
 
 private fun WorkoutExerciseSetLoad.toWeightText(): String {
     return when (this) {
-        is WorkoutExerciseSetLoad.Weight -> value?.formatWeightValue().orEmpty()
+        is WorkoutExerciseSetLoad.Weight -> value?.formatValue().orEmpty()
         is WorkoutExerciseSetLoad.Time -> ""
     }
 }
 
-private fun WorkoutExerciseSetLoad.toWeightUnit(): WeightUnit {
+private fun WorkoutExerciseSetLoad.toUnit(): WeightUnit {
     return when (this) {
         is WorkoutExerciseSetLoad.Weight -> unit
-        is WorkoutExerciseSetLoad.Time -> WeightUnit.KG
+        is WorkoutExerciseSetLoad.Time -> unit
     }
 }
 
-private fun WorkoutExerciseSetLoad.toDurationSecondsText(): String {
+private fun WorkoutExerciseSetLoad.toDurationText(): String {
     return when (this) {
         is WorkoutExerciseSetLoad.Weight -> ""
-        is WorkoutExerciseSetLoad.Time -> durationSeconds?.toString().orEmpty()
+
+        is WorkoutExerciseSetLoad.Time -> {
+            val seconds = durationSeconds ?: return ""
+
+            when (unit) {
+                WeightUnit.MIN -> (seconds / 60.0).formatValue()
+                WeightUnit.SEC -> seconds.toString()
+                WeightUnit.KG,
+                WeightUnit.LB,
+                -> seconds.toString()
+            }
+        }
     }
 }
 
-private fun Double.formatWeightValue(): String {
+private fun Double.formatValue(): String {
     return if (this % 1.0 == 0.0) {
         toInt().toString()
     } else {

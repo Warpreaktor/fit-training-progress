@@ -103,6 +103,7 @@ class TrainingPackJsonCodec @Inject constructor() {
                                     weightValue = set.optNullableDouble("weightValue"),
                                     weightUnit = set.optNullableString("weightUnit"),
                                     durationSeconds = set.optNullableInt("durationSeconds"),
+                                    durationUnit = set.optNullableString("durationUnit"),
                                 )
                             },
                         )
@@ -182,6 +183,7 @@ class TrainingPackJsonCodec @Inject constructor() {
             .putNullable("weightValue", weightValue)
             .putNullable("weightUnit", weightUnit)
             .putNullable("durationSeconds", durationSeconds)
+            .putNullable("durationUnit", durationUnit)
     }
 
     private fun JSONObject.putNullable(

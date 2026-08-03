@@ -30,7 +30,6 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuDefaults
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -79,7 +78,6 @@ import ru.trainingapp.core.model.WeightUnit
 import ru.trainingapp.core.model.ExerciseDefinition
 import ru.trainingapp.core.model.WorkoutExerciseSet
 import ru.trainingapp.core.model.WorkoutExerciseSetLoad
-import ru.trainingapp.core.model.WorkoutExerciseSetLoadType
 import kotlin.collections.indexOfFirst
 
 @Composable
@@ -550,18 +548,6 @@ private fun WorkoutExerciseSetRow(
                 }
             }
 
-            WorkoutExerciseSetLoadTypeSelector(
-                selectedLoadType = set.loadType,
-                onLoadTypeChanged = { loadType ->
-                    onAction(
-                        WorkoutEditorAction.SetLoadTypeChanged(
-                            workoutExerciseSetId = set.id,
-                            loadType = loadType,
-                        )
-                    )
-                },
-            )
-
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -585,59 +571,54 @@ private fun WorkoutExerciseSetRow(
                     ),
                 )
 
-                when (set.loadType) {
-                    WorkoutExerciseSetLoadType.WEIGHT -> {
-                        OutlinedTextField(
-                            value = set.weightText,
-                            onValueChange = { value ->
-                                onAction(
-                                    WorkoutEditorAction.SetWeightChanged(
-                                        workoutExerciseSetId = set.id,
-                                        value = value,
-                                    )
+                OutlinedTextField(
+                    value = if (set.weightUnit.isTimeUnit) {
+                        set.durationSecondsText
+                    } else {
+                        set.weightText
+                    },
+                    onValueChange = { value ->
+                        if (set.weightUnit.isTimeUnit) {
+                            onAction(
+                                WorkoutEditorAction.SetDurationSecondsChanged(
+                                    workoutExerciseSetId = set.id,
+                                    value = value,
+                                    unit = set.weightUnit,
                                 )
-                            },
-                            modifier = Modifier.weight(1f),
-                            label = { Text("Вес") },
-                            singleLine = true,
-                            keyboardOptions = KeyboardOptions(
-                                keyboardType = KeyboardType.Decimal,
-                            ),
-                        )
+                            )
+                        } else {
+                            onAction(
+                                WorkoutEditorAction.SetWeightChanged(
+                                    workoutExerciseSetId = set.id,
+                                    value = value,
+                                )
+                            )
+                        }
+                    },
+                    modifier = Modifier.weight(1f),
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(
+                        keyboardType = when (set.weightUnit) {
+                            WeightUnit.SEC -> KeyboardType.Number
+                            WeightUnit.KG,
+                            WeightUnit.LB,
+                            WeightUnit.MIN,
+                            -> KeyboardType.Decimal
+                        },
+                    ),
+                )
 
-                        WeightUnitDropdown(
-                            weightUnit = set.weightUnit,
-                            onWeightUnitChanged = { weightUnit ->
-                                onAction(
-                                    WorkoutEditorAction.SetWeightUnitChanged(
-                                        workoutExerciseSetId = set.id,
-                                        weightUnit = weightUnit,
-                                    )
-                                )
-                            },
+                WeightUnitDropdown(
+                    weightUnit = set.weightUnit,
+                    onWeightUnitChanged = { weightUnit ->
+                        onAction(
+                            WorkoutEditorAction.SetWeightUnitChanged(
+                                workoutExerciseSetId = set.id,
+                                weightUnit = weightUnit,
+                            )
                         )
-                    }
-
-                    WorkoutExerciseSetLoadType.TIME -> {
-                        OutlinedTextField(
-                            value = set.durationSecondsText,
-                            onValueChange = { value ->
-                                onAction(
-                                    WorkoutEditorAction.SetDurationSecondsChanged(
-                                        workoutExerciseSetId = set.id,
-                                        value = value,
-                                    )
-                                )
-                            },
-                            modifier = Modifier.weight(1f),
-                            label = { Text("Секунды") },
-                            singleLine = true,
-                            keyboardOptions = KeyboardOptions(
-                                keyboardType = KeyboardType.Number,
-                            ),
-                        )
-                    }
-                }
+                    },
+                )
             }
         }
     }
@@ -658,7 +639,7 @@ private fun WeightUnitDropdown(
         },
     ) {
         OutlinedTextField(
-            value = weightUnit.name.lowercase(),
+            value = weightUnit.shortLabel,
             onValueChange = {},
             modifier = Modifier
                 .menuAnchor()
@@ -684,7 +665,7 @@ private fun WeightUnitDropdown(
             WeightUnit.entries.forEach { unit ->
                 DropdownMenuItem(
                     text = {
-                        Text(unit.name.lowercase())
+                        Text(unit.shortLabel)
                     },
                     onClick = {
                         onWeightUnitChanged(unit)
@@ -693,36 +674,6 @@ private fun WeightUnitDropdown(
                 )
             }
         }
-    }
-}
-
-@Composable
-private fun WorkoutExerciseSetLoadTypeSelector(
-    selectedLoadType: WorkoutExerciseSetLoadType,
-    onLoadTypeChanged: (WorkoutExerciseSetLoadType) -> Unit,
-) {
-    Row(
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        FilterChip(
-            selected = selectedLoadType == WorkoutExerciseSetLoadType.WEIGHT,
-            onClick = {
-                onLoadTypeChanged(WorkoutExerciseSetLoadType.WEIGHT)
-            },
-            label = {
-                Text("Вес")
-            },
-        )
-
-        FilterChip(
-            selected = selectedLoadType == WorkoutExerciseSetLoadType.TIME,
-            onClick = {
-                onLoadTypeChanged(WorkoutExerciseSetLoadType.TIME)
-            },
-            label = {
-                Text("Время")
-            },
-        )
     }
 }
 

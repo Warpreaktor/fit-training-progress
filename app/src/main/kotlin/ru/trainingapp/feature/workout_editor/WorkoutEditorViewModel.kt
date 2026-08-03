@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
+import kotlin.math.roundToInt
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -198,6 +199,7 @@ class WorkoutEditorViewModel @Inject constructor(
                 updateSetDurationSeconds(
                     workoutExerciseSetId = action.workoutExerciseSetId,
                     value = action.value,
+                    unit = action.unit,
                 )
             }
 
@@ -491,6 +493,15 @@ class WorkoutEditorViewModel @Inject constructor(
         workoutExerciseSetId: Long,
         weightUnit: WeightUnit,
     ) {
+        updateSetDraft(
+            workoutExerciseSetId = workoutExerciseSetId,
+        ) { draft ->
+            draft.copy(
+                weightText = null,
+                durationSecondsText = null,
+            )
+        }
+
         launchOperation {
             updateWorkoutExerciseSetUseCase(
                 UpdateWorkoutExerciseSetUseCase.Command.UpdateWeightUnit(
@@ -504,8 +515,17 @@ class WorkoutEditorViewModel @Inject constructor(
     private fun updateSetDurationSeconds(
         workoutExerciseSetId: Long,
         value: String,
+        unit: WeightUnit,
     ) {
-        if (!value.isDigitsOnlyOrBlank()) {
+        val isValidDraft = when (unit) {
+            WeightUnit.MIN -> value.isDecimalDraft()
+            WeightUnit.SEC -> value.isDigitsOnlyOrBlank()
+            WeightUnit.KG,
+            WeightUnit.LB,
+            -> false
+        }
+
+        if (!isValidDraft) {
             return
         }
 
@@ -517,7 +537,16 @@ class WorkoutEditorViewModel @Inject constructor(
             )
         }
 
-        val parsedDuration = value.parseNullableInt()
+        val parsedDuration = when (unit) {
+            WeightUnit.MIN -> value.parseNullableDouble().map { minutes ->
+                minutes?.times(SECONDS_IN_MINUTE)?.roundToInt()
+            }
+
+            WeightUnit.SEC -> value.parseNullableInt()
+            WeightUnit.KG,
+            WeightUnit.LB,
+            -> ParsedNumber.Invalid
+        }
 
         if (parsedDuration is ParsedNumber.Invalid) {
             return
@@ -534,6 +563,10 @@ class WorkoutEditorViewModel @Inject constructor(
                 )
             )
         }
+    }
+
+    private companion object {
+        const val SECONDS_IN_MINUTE = 60.0
     }
 
     private fun updateExerciseChecked(
@@ -555,6 +588,17 @@ class WorkoutEditorViewModel @Inject constructor(
         data class Valid<T>(
             val value: T?,
         ) : ParsedNumber<T>
+    }
+
+    private fun <T, R> ParsedNumber<T>.map(
+        transform: (T?) -> R?,
+    ): ParsedNumber<R> {
+        return when (this) {
+            ParsedNumber.Invalid -> ParsedNumber.Invalid
+            is ParsedNumber.Valid -> ParsedNumber.Valid(
+                value = transform(value),
+            )
+        }
     }
 
     private fun String.isDigitsOnlyOrBlank(): Boolean {
