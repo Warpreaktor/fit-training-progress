@@ -9,6 +9,9 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import ru.trainingapp.core.domain.exportimport.ExportWorkoutUseCase
+import ru.trainingapp.core.domain.exportimport.ImportTrainingPackUseCase
+import ru.trainingapp.core.domain.repository.TrainingPackExportType
 import ru.trainingapp.core.domain.tag.CreateTagUseCase
 import ru.trainingapp.core.domain.tag.ObserveTagsUseCase
 import ru.trainingapp.core.domain.workout.ArchiveWorkoutUseCase
@@ -31,6 +34,8 @@ class WorkoutListViewModel @Inject constructor(
     private val replaceWorkoutTagsUseCase: ReplaceWorkoutTagsUseCase,
     private val duplicateWorkoutUseCase: DuplicateWorkoutUseCase,
     private val moveWorkoutUseCase: MoveWorkoutUseCase,
+    private val exportWorkoutUseCase: ExportWorkoutUseCase,
+    private val importTrainingPackUseCase: ImportTrainingPackUseCase,
 ) : ViewModel() {
 
     private val editorState = MutableStateFlow(WorkoutEditorState())
@@ -39,35 +44,44 @@ class WorkoutListViewModel @Inject constructor(
 
     private val tagEditorState = MutableStateFlow(WorkoutTagEditorState())
 
-    val uiState: StateFlow<WorkoutListUiState> =
-        combine(
-            observeWorkoutUseCase(),
-            observeTagsUseCase(),
-            editorState,
-            tagEditorState,
-            selectedFilterTagIds,
-        ) { workouts, tags, editor, tagEditor, filterTagIds ->
+    private val transferState = MutableStateFlow(WorkoutTransferState())
 
-            val filteredWorkouts = if (filterTagIds.isEmpty()) {
-                workouts
-            } else {
-                workouts.filter { workout ->
-                    workout.tags.any { tag -> tag.id in filterTagIds }
-                }
+    private var pendingExportWorkoutId: Long? = null
+
+    private val workoutListState = combine(
+        observeWorkoutUseCase(),
+        observeTagsUseCase(),
+        editorState,
+        tagEditorState,
+        selectedFilterTagIds,
+    ) { workouts, tags, editor, tagEditor, filterTagIds ->
+        val filteredWorkouts = if (filterTagIds.isEmpty()) {
+            workouts
+        } else {
+            workouts.filter { workout ->
+                workout.tags.any { tag -> tag.id in filterTagIds }
             }
+        }
 
-            WorkoutListUiState(
-                workouts = filteredWorkouts,
-                allTags = tags,
-                selectedFilterTagIds = filterTagIds,
-                editor = editor,
-                tagEditor = tagEditor,
-            )
-        }.stateIn(
-            scope = viewModelScope,
-            started = SharingStarted.WhileSubscribed(5_000),
-            initialValue = WorkoutListUiState(),
+        WorkoutListUiState(
+            workouts = filteredWorkouts,
+            allTags = tags,
+            selectedFilterTagIds = filterTagIds,
+            editor = editor,
+            tagEditor = tagEditor,
         )
+    }
+
+    val uiState: StateFlow<WorkoutListUiState> = combine(
+        workoutListState,
+        transferState,
+    ) { listState, transfer ->
+        listState.copy(transfer = transfer)
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5_000),
+        initialValue = WorkoutListUiState(),
+    )
 
     fun onCreateWorkoutClick() {
         editorState.value = WorkoutEditorState(
@@ -133,6 +147,78 @@ class WorkoutListViewModel @Inject constructor(
         viewModelScope.launch {
             moveWorkoutUseCase.down(id)
         }
+    }
+
+    fun onPrepareExportWorkout(workoutId: Long) {
+        pendingExportWorkoutId = workoutId
+    }
+
+    fun onExportDocumentCreated(destinationUri: String?) {
+        val workoutId = pendingExportWorkoutId
+        pendingExportWorkoutId = null
+
+        if (destinationUri == null || workoutId == null) {
+            return
+        }
+
+        viewModelScope.launch {
+            transferState.value = WorkoutTransferState(isInProgress = true)
+
+            transferState.value = runCatching {
+                exportWorkoutUseCase(
+                    workoutId = workoutId,
+                    destinationUri = destinationUri,
+                )
+
+                WorkoutTransferState(
+                    message = "Тренировка экспортирована",
+                )
+            }.getOrElse { exception ->
+                WorkoutTransferState(
+                    message = exception.message
+                        ?: "Не удалось экспортировать тренировку",
+                )
+            }
+        }
+    }
+
+    fun onImportDocumentSelected(sourceUri: String?) {
+        if (sourceUri == null) {
+            return
+        }
+
+        viewModelScope.launch {
+            transferState.value = WorkoutTransferState(isInProgress = true)
+
+            transferState.value = runCatching {
+                val result = importTrainingPackUseCase(
+                    sourceUri = sourceUri,
+                    expectedExportType = TrainingPackExportType.WORKOUT,
+                )
+
+                WorkoutTransferState(
+                    message = buildString {
+                        append("Импортировано тренировок: ${result.createdWorkouts}")
+                        append(", упражнений: ${result.createdExercises}")
+                        append(", тегов: ${result.createdTags}")
+                        append(", картинок: ${result.createdImages}")
+
+                        if (result.warnings.isNotEmpty()) {
+                            append(", предупреждений: ${result.warnings.size}")
+                        }
+                    },
+                )
+            }.getOrElse { exception ->
+                WorkoutTransferState(
+                    message = exception.message
+                        ?: "Не удалось импортировать тренировку",
+                )
+            }
+        }
+    }
+
+    fun onTransferMessageShown() {
+        transferState.value = transferState.value.copy(message = null)
     }
 
     fun onFilterTagClick(tagId: Long) {
@@ -228,6 +314,7 @@ data class WorkoutListUiState(
     val selectedFilterTagIds: Set<Long> = emptySet(),
     val editor: WorkoutEditorState = WorkoutEditorState(),
     val tagEditor: WorkoutTagEditorState = WorkoutTagEditorState(),
+    val transfer: WorkoutTransferState = WorkoutTransferState(),
 )
 
 data class WorkoutEditorState(
@@ -244,4 +331,9 @@ data class WorkoutTagEditorState(
     val selectedTagIds: Set<Long> = emptySet(),
     val newTagName: String = "",
     val newTagNameError: String? = null,
+)
+
+data class WorkoutTransferState(
+    val isInProgress: Boolean = false,
+    val message: String? = null,
 )

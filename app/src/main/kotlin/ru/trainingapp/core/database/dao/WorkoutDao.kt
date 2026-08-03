@@ -54,6 +54,16 @@ interface WorkoutDao {
     )
     suspend fun getWorkoutById(id: Long): WorkoutEntity?
 
+    @Query(
+        """
+        SELECT *
+        FROM workouts
+        WHERE name = :name COLLATE NOCASE
+        LIMIT 1
+        """
+    )
+    suspend fun getWorkoutByName(name: String): WorkoutEntity?
+
     @Insert
     suspend fun insertWorkout(entity: WorkoutEntity): Long
 

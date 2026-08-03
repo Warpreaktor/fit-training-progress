@@ -20,6 +20,7 @@ import ru.trainingapp.core.domain.exercise.SetExerciseCoverImageUseCase
 import ru.trainingapp.core.domain.exercise.UpdateExerciseDefinitionUseCase
 import ru.trainingapp.core.domain.exportimport.ExportExerciseUseCase
 import ru.trainingapp.core.domain.exportimport.ImportTrainingPackUseCase
+import ru.trainingapp.core.domain.repository.TrainingPackExportType
 import ru.trainingapp.core.domain.tag.CreateTagUseCase
 import ru.trainingapp.core.domain.tag.ObserveTagsUseCase
 import ru.trainingapp.core.model.ExerciseDefinition
@@ -389,7 +390,10 @@ class ExerciseCatalogViewModel @Inject constructor(
             transferState.value = ExerciseTransferState(isInProgress = true)
 
             transferState.value = runCatching {
-                val result = importTrainingPackUseCase(sourceUri)
+                val result = importTrainingPackUseCase(
+                    sourceUri = sourceUri,
+                    expectedExportType = TrainingPackExportType.SINGLE_EXERCISE,
+                )
 
                 ExerciseTransferState(
                     message = buildString {

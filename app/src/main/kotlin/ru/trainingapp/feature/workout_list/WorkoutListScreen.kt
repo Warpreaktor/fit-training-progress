@@ -1,5 +1,7 @@
 package ru.trainingapp.feature.workout_list
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -30,13 +32,17 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -61,6 +67,18 @@ fun WorkoutListRoute(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
+    val exportWorkoutLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CreateDocument("application/zip"),
+    ) { uri ->
+        viewModel.onExportDocumentCreated(uri?.toString())
+    }
+
+    val importWorkoutLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument(),
+    ) { uri ->
+        viewModel.onImportDocumentSelected(uri?.toString())
+    }
+
     WorkoutListScreen(
         uiState = uiState,
         onOpenWorkout = onOpenWorkout,
@@ -84,6 +102,20 @@ fun WorkoutListRoute(
         onDuplicateWorkoutClick = viewModel::onDuplicateWorkoutClick,
         onMoveWorkoutUpClick = viewModel::onMoveWorkoutUpClick,
         onMoveWorkoutDownClick = viewModel::onMoveWorkoutDownClick,
+        onExportWorkoutClick = { workout ->
+            viewModel.onPrepareExportWorkout(workout.id)
+            exportWorkoutLauncher.launch(buildWorkoutPackFileName(workout.name))
+        },
+        onImportWorkoutClick = {
+            importWorkoutLauncher.launch(
+                arrayOf(
+                    "application/zip",
+                    "application/octet-stream",
+                    "*/*",
+                )
+            )
+        },
+        onTransferMessageShown = viewModel::onTransferMessageShown,
     )
 }
 
@@ -112,14 +144,31 @@ fun WorkoutListScreen(
     onDuplicateWorkoutClick: (Long) -> Unit,
     onMoveWorkoutUpClick: (Long) -> Unit,
     onMoveWorkoutDownClick: (Long) -> Unit,
+    onExportWorkoutClick: (Workout) -> Unit,
+    onImportWorkoutClick: () -> Unit,
+    onTransferMessageShown: () -> Unit,
 ) {
+    val snackbarHostState = remember { SnackbarHostState() }
+
+    LaunchedEffect(uiState.transfer.message) {
+        val message = uiState.transfer.message ?: return@LaunchedEffect
+
+        snackbarHostState.showSnackbar(message)
+        onTransferMessageShown()
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(title = { Text("Тренировки") })
         },
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         floatingActionButton = {
             ExtendedFloatingActionButton(
-                onClick = onCreateWorkoutClick,
+                onClick = {
+                    if (!uiState.transfer.isInProgress) {
+                        onCreateWorkoutClick()
+                    }
+                },
             ) {
                 Text("Создать")
             }
@@ -142,6 +191,12 @@ fun WorkoutListScreen(
                 }
             }
 
+            if (uiState.transfer.isInProgress) {
+                LinearProgressIndicator(
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
+
             if (uiState.allTags.isNotEmpty()) {
                 TagFilterRow(
                     tags = uiState.allTags,
@@ -154,18 +209,30 @@ fun WorkoutListScreen(
             if (uiState.workouts.isEmpty()) {
                 val hasFilter = uiState.selectedFilterTagIds.isNotEmpty()
 
-                EmptyState(
-                    title = if (hasFilter) {
-                        "Ничего не найдено"
-                    } else {
-                        "Пока нет тренировок"
-                    },
-                    message = if (hasFilter) {
-                        "Под выбранные теги нет тренировок."
-                    } else {
-                        "Создай первую тренировку!"
-                    },
-                )
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    EmptyState(
+                        title = if (hasFilter) {
+                            "Ничего не найдено"
+                        } else {
+                            "Пока нет тренировок"
+                        },
+                        message = if (hasFilter) {
+                            "Под выбранные теги нет тренировок."
+                        } else {
+                            "Создай первую тренировку или загрузи готовую."
+                        },
+                    )
+
+                    TextButton(
+                        onClick = onImportWorkoutClick,
+                        enabled = !uiState.transfer.isInProgress,
+                    ) {
+                        Text("Загрузить тренировку")
+                    }
+                }
             } else {
                 LazyColumn(
                     verticalArrangement = Arrangement.spacedBy(12.dp),
@@ -187,6 +254,9 @@ fun WorkoutListScreen(
                             onDuplicateClick = { onDuplicateWorkoutClick(workout.id) },
                             onMoveUpClick = { onMoveWorkoutUpClick(workout.id) },
                             onMoveDownClick = { onMoveWorkoutDownClick(workout.id) },
+                            onExportClick = { onExportWorkoutClick(workout) },
+                            onImportClick = onImportWorkoutClick,
+                            isTransferInProgress = uiState.transfer.isInProgress,
                         )
                     }
                 }
@@ -229,6 +299,9 @@ private fun WorkoutCard(
     onDuplicateClick: () -> Unit,
     onMoveUpClick: () -> Unit,
     onMoveDownClick: () -> Unit,
+    onExportClick: () -> Unit,
+    onImportClick: () -> Unit,
+    isTransferInProgress: Boolean,
 ) {
     var isMenuExpanded by remember {
         mutableStateOf(false)
@@ -325,6 +398,28 @@ private fun WorkoutCard(
                         onClick = {
                             isMenuExpanded = false
                             onDuplicateClick()
+                        },
+                    )
+
+                    DropdownMenuItem(
+                        text = {
+                            Text("Выгрузить")
+                        },
+                        enabled = !isTransferInProgress,
+                        onClick = {
+                            isMenuExpanded = false
+                            onExportClick()
+                        },
+                    )
+
+                    DropdownMenuItem(
+                        text = {
+                            Text("Загрузить тренировку")
+                        },
+                        enabled = !isTransferInProgress,
+                        onClick = {
+                            isMenuExpanded = false
+                            onImportClick()
                         },
                     )
 
@@ -558,4 +653,13 @@ private fun WorkoutTagsDialog(
             }
         },
     )
+}
+
+private fun buildWorkoutPackFileName(workoutName: String): String {
+    val safeName = workoutName
+        .replace(Regex("[\\/:*?\"<>|]"), "_")
+        .trim()
+        .ifBlank { "workout" }
+
+    return "$safeName.zip"
 }

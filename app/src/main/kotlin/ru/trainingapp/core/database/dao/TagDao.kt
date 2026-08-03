@@ -70,6 +70,20 @@ interface TagDao {
         """
         SELECT t.*
         FROM tags t
+        INNER JOIN workout_tag_cross_refs ref
+            ON ref.tagId = t.id
+        WHERE ref.workoutId = :workoutId
+        ORDER BY t.name COLLATE NOCASE ASC
+        """
+    )
+    suspend fun getTagsByWorkoutId(
+        workoutId: Long,
+    ): List<TagEntity>
+
+    @Query(
+        """
+        SELECT t.*
+        FROM tags t
         INNER JOIN exercise_definition_tag_cross_refs ref
             ON ref.tagId = t.id
         WHERE ref.exerciseDefinitionId = :exerciseDefinitionId
