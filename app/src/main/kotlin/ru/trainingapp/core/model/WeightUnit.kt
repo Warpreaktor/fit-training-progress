@@ -20,4 +20,8 @@ enum class WeightUnit(
         shortLabel = "сек",
         isTimeUnit = true,
     ),
+    DEG(
+        shortLabel = "°",
+        isTimeUnit = false,
+    ),
 }

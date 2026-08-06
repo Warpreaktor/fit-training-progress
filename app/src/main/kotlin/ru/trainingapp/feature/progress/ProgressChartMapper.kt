@@ -116,14 +116,7 @@ private fun List<BestProgressResult>.resolveProgressMode(): ProgressMode {
 private fun List<BestProgressResult>.resolveWeightUnitLabel(): String {
     val weightUnits = mapNotNull { result -> result.weightUnit }.distinct()
 
-    return when (weightUnits.singleOrNull()) {
-        WeightUnit.KG -> "кг"
-        WeightUnit.LB -> "lb"
-        WeightUnit.MIN,
-        WeightUnit.SEC,
-        null,
-        -> "вес"
-    }
+    return weightUnits.singleOrNull()?.shortLabel ?: "ед."
 }
 
 private fun WorkoutExerciseProgressPoint.toChartPoint(
@@ -253,7 +246,7 @@ private fun List<ProgressChartPointUi>.toSeries(
             ),
             ProgressChartSeriesUi(
                 type = ProgressChartSeriesType.WEIGHT,
-                title = "Вес",
+                title = "Кол-во",
                 latestValueLabel = "${last().weightValue.formatSmartOrEmpty()} $weightUnitLabel",
             ),
         )

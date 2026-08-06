@@ -746,7 +746,6 @@ class RoomTrainingPackRepository @Inject constructor(
                         WeightUnit.valueOf(value.uppercase())
                     }.getOrNull()
                 }
-                ?.takeUnless { unit -> unit.isTimeUnit }
 
             val parsedDurationUnit = setDto.durationUnit
                 ?.trim()

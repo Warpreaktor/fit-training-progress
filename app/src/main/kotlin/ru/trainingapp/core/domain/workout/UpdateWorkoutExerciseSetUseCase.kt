@@ -2,9 +2,7 @@ package ru.trainingapp.core.domain.workout
 
 import ru.trainingapp.core.domain.repository.WorkoutRepository
 import ru.trainingapp.core.model.WeightUnit
-import ru.trainingapp.core.model.WorkoutExerciseSet
 import ru.trainingapp.core.model.WorkoutExerciseSetLoad
-import ru.trainingapp.core.model.WorkoutExerciseSetLoadType
 import javax.inject.Inject
 
 class UpdateWorkoutExerciseSetUseCase @Inject constructor(
@@ -26,49 +24,22 @@ class UpdateWorkoutExerciseSetUseCase @Inject constructor(
                 )
             }
 
-            is Command.ChangeLoadType -> {
+            is Command.UpdateQuantity -> {
+                if (command.value != null && command.value < MIN_QUANTITY_VALUE) return
+
                 currentSet.copy(
-                    load = currentSet.load.changeType(command.loadType),
+                    load = WorkoutExerciseSetLoad.Weight(
+                        value = command.value,
+                        unit = currentSet.load.unit(),
+                    ),
                 )
             }
 
-            is Command.UpdateWeight -> {
-                if (command.value != null && command.value < MIN_WEIGHT_VALUE) return
-
+            is Command.UpdateMeasurementUnit -> {
                 currentSet.copy(
-                    load = when (val currentLoad = currentSet.load) {
-                        is WorkoutExerciseSetLoad.Weight -> currentLoad.copy(
-                            value = command.value,
-                        )
-
-                        is WorkoutExerciseSetLoad.Time -> WorkoutExerciseSetLoad.Weight(
-                            value = command.value,
-                            unit = DEFAULT_WEIGHT_UNIT,
-                        )
-                    },
-                )
-            }
-
-            is Command.UpdateWeightUnit -> {
-                currentSet.copy(
-                    load = currentSet.load.changeUnit(command.unit),
-                )
-            }
-
-            is Command.UpdateDurationSeconds -> {
-                if (command.durationSeconds != null && command.durationSeconds < MIN_DURATION_SECONDS) {
-                    return
-                }
-
-                val currentTimeUnit = (currentSet.load as? WorkoutExerciseSetLoad.Time)
-                    ?.unit
-                    ?.takeIf { unit -> unit.isTimeUnit }
-                    ?: DEFAULT_TIME_UNIT
-
-                currentSet.copy(
-                    load = WorkoutExerciseSetLoad.Time(
-                        durationSeconds = command.durationSeconds,
-                        unit = currentTimeUnit,
+                    load = WorkoutExerciseSetLoad.Weight(
+                        value = currentSet.load.quantityValue(),
+                        unit = command.unit,
                     ),
                 )
             }
@@ -86,83 +57,36 @@ class UpdateWorkoutExerciseSetUseCase @Inject constructor(
             val reps: Int,
         ) : Command
 
-        data class ChangeLoadType(
-            override val setId: Long,
-            val loadType: WorkoutExerciseSetLoadType,
-        ) : Command
-
-        data class UpdateWeight(
+        data class UpdateQuantity(
             override val setId: Long,
             val value: Double?,
         ) : Command
 
-        data class UpdateWeightUnit(
+        data class UpdateMeasurementUnit(
             override val setId: Long,
             val unit: WeightUnit,
         ) : Command
-
-        data class UpdateDurationSeconds(
-            override val setId: Long,
-            val durationSeconds: Int?,
-        ) : Command
     }
 
-    private fun WorkoutExerciseSetLoad.changeType(
-        loadType: WorkoutExerciseSetLoadType,
-    ): WorkoutExerciseSetLoad {
-        return when (loadType) {
-            WorkoutExerciseSetLoadType.WEIGHT -> when (this) {
-                is WorkoutExerciseSetLoad.Weight -> this
-                is WorkoutExerciseSetLoad.Time -> WorkoutExerciseSetLoad.Weight(
-                    value = null,
-                    unit = DEFAULT_WEIGHT_UNIT,
-                )
-            }
-
-            WorkoutExerciseSetLoadType.TIME -> when (this) {
-                is WorkoutExerciseSetLoad.Weight -> WorkoutExerciseSetLoad.Time(
-                    durationSeconds = null,
-                    unit = DEFAULT_TIME_UNIT,
-                )
-
-                is WorkoutExerciseSetLoad.Time -> this
+    private fun WorkoutExerciseSetLoad.quantityValue(): Double? {
+        return when (this) {
+            is WorkoutExerciseSetLoad.Weight -> value
+            is WorkoutExerciseSetLoad.Time -> durationSeconds?.let { seconds ->
+                if (unit == WeightUnit.MIN) seconds / SECONDS_IN_MINUTE else seconds.toDouble()
             }
         }
     }
 
-    private fun WorkoutExerciseSetLoad.changeUnit(
-        unit: WeightUnit,
-    ): WorkoutExerciseSetLoad {
-        return if (unit.isTimeUnit) {
-            when (this) {
-                is WorkoutExerciseSetLoad.Weight -> WorkoutExerciseSetLoad.Time(
-                    durationSeconds = null,
-                    unit = unit,
-                )
-
-                is WorkoutExerciseSetLoad.Time -> copy(
-                    unit = unit,
-                )
-            }
-        } else {
-            when (this) {
-                is WorkoutExerciseSetLoad.Weight -> copy(
-                    unit = unit,
-                )
-
-                is WorkoutExerciseSetLoad.Time -> WorkoutExerciseSetLoad.Weight(
-                    value = null,
-                    unit = unit,
-                )
-            }
+    private fun WorkoutExerciseSetLoad.unit(): WeightUnit {
+        return when (this) {
+            is WorkoutExerciseSetLoad.Weight -> unit
+            is WorkoutExerciseSetLoad.Time -> unit
         }
     }
 
     private companion object {
         const val MIN_REPS = 1
-        const val MIN_WEIGHT_VALUE = 0.0
-        const val MIN_DURATION_SECONDS = 1
-        val DEFAULT_WEIGHT_UNIT = WeightUnit.KG
-        val DEFAULT_TIME_UNIT = WeightUnit.SEC
+        const val MIN_QUANTITY_VALUE = 0.0
+        const val SECONDS_IN_MINUTE = 60.0
     }
 }

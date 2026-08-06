@@ -5,7 +5,6 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
-import kotlin.math.roundToInt
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -26,7 +25,6 @@ import ru.trainingapp.core.domain.workout.ToggleWorkoutExerciseCheckedUseCase
 import ru.trainingapp.core.domain.workout.UpdateWorkoutExerciseSetUseCase
 import ru.trainingapp.core.model.ExerciseDefinition
 import ru.trainingapp.core.model.WeightUnit
-import ru.trainingapp.core.model.WorkoutExerciseSetLoadType
 import ru.trainingapp.navigation.AppRoute
 
 @HiltViewModel
@@ -174,31 +172,16 @@ class WorkoutEditorViewModel @Inject constructor(
                 )
             }
 
-            is WorkoutEditorAction.SetLoadTypeChanged -> {
-                updateSetLoadType(
-                    workoutExerciseSetId = action.workoutExerciseSetId,
-                    loadType = action.loadType,
-                )
-            }
-
-            is WorkoutEditorAction.SetWeightChanged -> {
-                updateSetWeight(
+            is WorkoutEditorAction.SetQuantityChanged -> {
+                updateSetQuantity(
                     workoutExerciseSetId = action.workoutExerciseSetId,
                     value = action.value,
                 )
             }
 
-            is WorkoutEditorAction.SetWeightUnitChanged -> {
-                updateSetWeightUnit(
+            is WorkoutEditorAction.SetMeasurementUnitChanged -> {
+                updateSetMeasurementUnit(
                     workoutExerciseSetId = action.workoutExerciseSetId,
-                    weightUnit = action.weightUnit,
-                )
-            }
-
-            is WorkoutEditorAction.SetDurationSecondsChanged -> {
-                updateSetDurationSeconds(
-                    workoutExerciseSetId = action.workoutExerciseSetId,
-                    value = action.value,
                     unit = action.unit,
                 )
             }
@@ -422,39 +405,7 @@ class WorkoutEditorViewModel @Inject constructor(
         }
     }
 
-    private fun updateSetLoadType(
-        workoutExerciseSetId: Long,
-        loadType: WorkoutExerciseSetLoadType,
-    ) {
-        updateSetDraft(
-            workoutExerciseSetId = workoutExerciseSetId,
-        ) { draft ->
-            when (loadType) {
-                WorkoutExerciseSetLoadType.WEIGHT -> {
-                    draft.copy(
-                        durationSecondsText = null,
-                    )
-                }
-
-                WorkoutExerciseSetLoadType.TIME -> {
-                    draft.copy(
-                        weightText = null,
-                    )
-                }
-            }
-        }
-
-        launchOperation {
-            updateWorkoutExerciseSetUseCase(
-                UpdateWorkoutExerciseSetUseCase.Command.ChangeLoadType(
-                    setId = workoutExerciseSetId,
-                    loadType = loadType,
-                )
-            )
-        }
-    }
-
-    private fun updateSetWeight(
+    private fun updateSetQuantity(
         workoutExerciseSetId: Long,
         value: String,
     ) {
@@ -466,107 +417,40 @@ class WorkoutEditorViewModel @Inject constructor(
             workoutExerciseSetId = workoutExerciseSetId,
         ) { draft ->
             draft.copy(
-                weightText = value,
+                quantityText = value,
             )
         }
 
-        val parsedWeight = value.parseNullableDouble()
+        val parsedQuantity = value.parseNullableDouble()
 
-        if (parsedWeight is ParsedNumber.Invalid) {
+        if (parsedQuantity is ParsedNumber.Invalid) {
             return
         }
 
-        val weightValue =
-            (parsedWeight as ParsedNumber.Valid).value
+        val quantity = (parsedQuantity as ParsedNumber.Valid).value
 
         launchOperation {
             updateWorkoutExerciseSetUseCase(
-                UpdateWorkoutExerciseSetUseCase.Command.UpdateWeight(
+                UpdateWorkoutExerciseSetUseCase.Command.UpdateQuantity(
                     setId = workoutExerciseSetId,
-                    value = weightValue,
+                    value = quantity,
                 )
             )
         }
     }
 
-    private fun updateSetWeightUnit(
+    private fun updateSetMeasurementUnit(
         workoutExerciseSetId: Long,
-        weightUnit: WeightUnit,
-    ) {
-        updateSetDraft(
-            workoutExerciseSetId = workoutExerciseSetId,
-        ) { draft ->
-            draft.copy(
-                weightText = null,
-                durationSecondsText = null,
-            )
-        }
-
-        launchOperation {
-            updateWorkoutExerciseSetUseCase(
-                UpdateWorkoutExerciseSetUseCase.Command.UpdateWeightUnit(
-                    setId = workoutExerciseSetId,
-                    unit = weightUnit,
-                )
-            )
-        }
-    }
-
-    private fun updateSetDurationSeconds(
-        workoutExerciseSetId: Long,
-        value: String,
         unit: WeightUnit,
     ) {
-        val isValidDraft = when (unit) {
-            WeightUnit.MIN -> value.isDecimalDraft()
-            WeightUnit.SEC -> value.isDigitsOnlyOrBlank()
-            WeightUnit.KG,
-            WeightUnit.LB,
-            -> false
-        }
-
-        if (!isValidDraft) {
-            return
-        }
-
-        updateSetDraft(
-            workoutExerciseSetId = workoutExerciseSetId,
-        ) { draft ->
-            draft.copy(
-                durationSecondsText = value,
-            )
-        }
-
-        val parsedDuration = when (unit) {
-            WeightUnit.MIN -> value.parseNullableDouble().map { minutes ->
-                minutes?.times(SECONDS_IN_MINUTE)?.roundToInt()
-            }
-
-            WeightUnit.SEC -> value.parseNullableInt()
-            WeightUnit.KG,
-            WeightUnit.LB,
-            -> ParsedNumber.Invalid
-        }
-
-        if (parsedDuration is ParsedNumber.Invalid) {
-            return
-        }
-
-        val durationSeconds =
-            (parsedDuration as ParsedNumber.Valid).value
-
         launchOperation {
             updateWorkoutExerciseSetUseCase(
-                UpdateWorkoutExerciseSetUseCase.Command.UpdateDurationSeconds(
+                UpdateWorkoutExerciseSetUseCase.Command.UpdateMeasurementUnit(
                     setId = workoutExerciseSetId,
-                    durationSeconds = durationSeconds,
+                    unit = unit,
                 )
             )
         }
-    }
-
-    private companion object {
-        const val SECONDS_IN_MINUTE = 60.0
     }
 
     private fun updateExerciseChecked(
@@ -590,17 +474,6 @@ class WorkoutEditorViewModel @Inject constructor(
         ) : ParsedNumber<T>
     }
 
-    private fun <T, R> ParsedNumber<T>.map(
-        transform: (T?) -> R?,
-    ): ParsedNumber<R> {
-        return when (this) {
-            ParsedNumber.Invalid -> ParsedNumber.Invalid
-            is ParsedNumber.Valid -> ParsedNumber.Valid(
-                value = transform(value),
-            )
-        }
-    }
-
     private fun String.isDigitsOnlyOrBlank(): Boolean {
         return all { character ->
             character.isDigit()
@@ -611,18 +484,6 @@ class WorkoutEditorViewModel @Inject constructor(
         return isEmpty() || matches(
             Regex("""\d*([.,]\d*)?""")
         )
-    }
-
-    private fun String.parseNullableInt(): ParsedNumber<Int> {
-        if (isBlank()) {
-            return ParsedNumber.Valid(null)
-        }
-
-        return toIntOrNull()
-            ?.let { value ->
-                ParsedNumber.Valid(value)
-            }
-            ?: ParsedNumber.Invalid
     }
 
     private fun String.parseNullableDouble(): ParsedNumber<Double> {

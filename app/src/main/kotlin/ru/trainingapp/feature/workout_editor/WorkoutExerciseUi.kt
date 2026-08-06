@@ -4,7 +4,6 @@ import ru.trainingapp.core.model.WeightUnit
 import ru.trainingapp.core.model.WorkoutExercise
 import ru.trainingapp.core.model.WorkoutExerciseSet
 import ru.trainingapp.core.model.WorkoutExerciseSetLoad
-import ru.trainingapp.core.model.WorkoutExerciseSetLoadType
 
 data class WorkoutExerciseUi(
     val id: Long,
@@ -22,16 +21,13 @@ data class WorkoutExerciseSetUi(
     val workoutExerciseId: Long,
     val setNumber: Int,
     val repsText: String,
-    val loadType: WorkoutExerciseSetLoadType,
-    val weightText: String,
-    val weightUnit: WeightUnit,
-    val durationSecondsText: String,
+    val quantityText: String,
+    val measurementUnit: WeightUnit,
 )
 
 data class WorkoutExerciseSetDraft(
     val repsText: String? = null,
-    val weightText: String? = null,
-    val durationSecondsText: String? = null,
+    val quantityText: String? = null,
 )
 
 fun WorkoutExercise.toUi(
@@ -63,24 +59,25 @@ private fun WorkoutExerciseSet.toUi(
         workoutExerciseId = workoutExerciseId,
         setNumber = setNumber,
         repsText = draft?.repsText ?: reps.toString(),
-        loadType = load.toLoadType(),
-        weightText = draft?.weightText ?: load.toWeightText(),
-        weightUnit = load.toUnit(),
-        durationSecondsText = draft?.durationSecondsText ?: load.toDurationText(),
+        quantityText = draft?.quantityText ?: load.toQuantityText(),
+        measurementUnit = load.toUnit(),
     )
 }
 
-private fun WorkoutExerciseSetLoad.toLoadType(): WorkoutExerciseSetLoadType {
-    return when (this) {
-        is WorkoutExerciseSetLoad.Weight -> WorkoutExerciseSetLoadType.WEIGHT
-        is WorkoutExerciseSetLoad.Time -> WorkoutExerciseSetLoadType.TIME
-    }
-}
-
-private fun WorkoutExerciseSetLoad.toWeightText(): String {
+private fun WorkoutExerciseSetLoad.toQuantityText(): String {
     return when (this) {
         is WorkoutExerciseSetLoad.Weight -> value?.formatValue().orEmpty()
-        is WorkoutExerciseSetLoad.Time -> ""
+
+        // Legacy TIME records are shown in the same generic quantity field.
+        // Minutes are restored to the value the user originally saw.
+        is WorkoutExerciseSetLoad.Time -> {
+            val seconds = durationSeconds ?: return ""
+
+            when (unit) {
+                WeightUnit.MIN -> (seconds / 60.0).formatValue()
+                else -> seconds.toDouble().formatValue()
+            }
+        }
     }
 }
 
@@ -88,24 +85,6 @@ private fun WorkoutExerciseSetLoad.toUnit(): WeightUnit {
     return when (this) {
         is WorkoutExerciseSetLoad.Weight -> unit
         is WorkoutExerciseSetLoad.Time -> unit
-    }
-}
-
-private fun WorkoutExerciseSetLoad.toDurationText(): String {
-    return when (this) {
-        is WorkoutExerciseSetLoad.Weight -> ""
-
-        is WorkoutExerciseSetLoad.Time -> {
-            val seconds = durationSeconds ?: return ""
-
-            when (unit) {
-                WeightUnit.MIN -> (seconds / 60.0).formatValue()
-                WeightUnit.SEC -> seconds.toString()
-                WeightUnit.KG,
-                WeightUnit.LB,
-                -> seconds.toString()
-            }
-        }
     }
 }
 

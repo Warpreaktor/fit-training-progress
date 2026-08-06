@@ -76,10 +76,18 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import coil.compose.AsyncImage
 import ru.trainingapp.core.model.WeightUnit
 import ru.trainingapp.core.model.ExerciseDefinition
-import ru.trainingapp.core.model.WorkoutExerciseSet
-import ru.trainingapp.core.model.WorkoutExerciseSetLoad
 import kotlin.collections.indexOfFirst
 
+/**
+ * Точка входа Compose-экрана редактора тренировки.
+ *
+ * Связывает UI редактора с [WorkoutEditorViewModel], наблюдает состояние экрана,
+ * передаёт пользовательские действия во ViewModel и обрабатывает события
+ * жизненного цикла и навигации, при которых требуется сохранить прогресс.
+ *
+ * Остальные функции файла формируют интерфейс редактирования тренировки:
+ * список упражнений, подходы, поля ввода и диалоги выбора.
+ */
 @Composable
 fun WorkoutEditorRoute(
     workoutId: Long,
@@ -503,6 +511,9 @@ private fun WorkoutExerciseCard(
     }
 }
 
+/**
+ * Строка упражнения в тренировке, редактирование подходов, количества, и ед. изм.
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun WorkoutExerciseSetRow(
@@ -572,49 +583,30 @@ private fun WorkoutExerciseSetRow(
                 )
 
                 OutlinedTextField(
-                    value = if (set.weightUnit.isTimeUnit) {
-                        set.durationSecondsText
-                    } else {
-                        set.weightText
-                    },
+                    value = set.quantityText,
                     onValueChange = { value ->
-                        if (set.weightUnit.isTimeUnit) {
-                            onAction(
-                                WorkoutEditorAction.SetDurationSecondsChanged(
-                                    workoutExerciseSetId = set.id,
-                                    value = value,
-                                    unit = set.weightUnit,
-                                )
+                        onAction(
+                            WorkoutEditorAction.SetQuantityChanged(
+                                workoutExerciseSetId = set.id,
+                                value = value,
                             )
-                        } else {
-                            onAction(
-                                WorkoutEditorAction.SetWeightChanged(
-                                    workoutExerciseSetId = set.id,
-                                    value = value,
-                                )
-                            )
-                        }
+                        )
                     },
                     modifier = Modifier.weight(1f),
+                    label = { Text("Кол-во") },
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(
-                        keyboardType = when (set.weightUnit) {
-                            WeightUnit.SEC -> KeyboardType.Number
-                            WeightUnit.KG,
-                            WeightUnit.LB,
-                            WeightUnit.MIN,
-                            -> KeyboardType.Decimal
-                        },
+                        keyboardType = KeyboardType.Decimal,
                     ),
                 )
 
                 WeightUnitDropdown(
-                    weightUnit = set.weightUnit,
-                    onWeightUnitChanged = { weightUnit ->
+                    weightUnit = set.measurementUnit,
+                    onWeightUnitChanged = { unit ->
                         onAction(
-                            WorkoutEditorAction.SetWeightUnitChanged(
+                            WorkoutEditorAction.SetMeasurementUnitChanged(
                                 workoutExerciseSetId = set.id,
-                                weightUnit = weightUnit,
+                                unit = unit,
                             )
                         )
                     },
@@ -872,44 +864,5 @@ private fun ExerciseDefinitionThumbnail(
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
-    }
-}
-
-private fun buildSetDescription(
-    set: WorkoutExerciseSet,
-): String {
-    val reps = set.reps.toString()
-
-    return when (val load = set.load) {
-        is WorkoutExerciseSetLoad.Weight -> {
-            "Повторы: $reps · Вес: ${buildWeightText(load)}"
-        }
-
-        is WorkoutExerciseSetLoad.Time -> {
-            "Повторы: $reps · Время: ${buildDurationText(load.durationSeconds)}"
-        }
-    }
-}
-
-private fun buildWeightText(
-    load: WorkoutExerciseSetLoad.Weight,
-): String {
-    val value = load.value ?: return "—"
-    return "${formatWeightValue(value)} ${load.unit.name.lowercase()}"
-}
-
-private fun buildDurationText(
-    durationSeconds: Int?,
-): String {
-    return durationSeconds?.let { "$it сек" } ?: "—"
-}
-
-private fun formatWeightValue(
-    value: Double,
-): String {
-    return if (value % 1.0 == 0.0) {
-        value.toInt().toString()
-    } else {
-        value.toString()
     }
 }

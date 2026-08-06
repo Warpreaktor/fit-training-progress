@@ -57,6 +57,16 @@ import ru.trainingapp.core.model.Tag
 import ru.trainingapp.core.model.Workout
 import ru.trainingapp.core.ui.component.EmptyState
 
+/**
+ * Маршрут экрана списка тренировок.
+ *
+ * Связывает Compose-интерфейс с [WorkoutListViewModel]:
+ * подписывается на состояние экрана, передаёт пользовательские действия во ViewModel,
+ * запускает системные диалоги экспорта и импорта файлов и делегирует навигацию
+ * переданным callback-функциям.
+ *
+ * Непосредственная отрисовка экрана выполняется в [WorkoutListScreen].
+ */
 @Composable
 fun WorkoutListRoute(
     onOpenWorkout: (Long) -> Unit,
