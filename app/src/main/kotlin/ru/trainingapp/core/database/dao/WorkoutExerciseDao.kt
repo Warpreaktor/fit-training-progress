@@ -128,6 +128,21 @@ interface WorkoutExerciseDao {
 
     @Query(
         """
+        SELECT we.id
+        FROM workout_exercises we
+        INNER JOIN workout_exercise_sets wes
+            ON wes.workoutExerciseId = we.id
+        WHERE we.exerciseDefinitionId = :exerciseDefinitionId
+        ORDER BY wes.updatedAt DESC, wes.id DESC
+        LIMIT 1
+        """
+    )
+    suspend fun getMostRecentlyUpdatedWorkoutExerciseIdWithSets(
+        exerciseDefinitionId: Long,
+    ): Long?
+
+    @Query(
+        """
     SELECT
         we.id AS id,
         we.workoutId AS workoutId,

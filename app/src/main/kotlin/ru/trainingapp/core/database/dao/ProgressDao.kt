@@ -61,6 +61,20 @@ interface ProgressDao {
         workoutExerciseId: Long,
     ): List<WorkoutExerciseProgressPointEntity>
 
+    @Transaction
+    @Query(
+        """
+        SELECT *
+        FROM workout_exercise_progress_points
+        WHERE exerciseDefinitionId = :exerciseDefinitionId
+        ORDER BY createdAt DESC, id DESC
+        LIMIT 1
+        """
+    )
+    suspend fun getLatestProgressPointWithSetsByExerciseDefinitionId(
+        exerciseDefinitionId: Long,
+    ): WorkoutExerciseProgressPointWithSetsDbModel?
+
     @Query(
         """
         SELECT *

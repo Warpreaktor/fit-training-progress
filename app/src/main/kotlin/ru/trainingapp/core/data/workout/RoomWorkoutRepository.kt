@@ -308,6 +308,7 @@ class RoomWorkoutRepository @Inject constructor(
         val now = System.currentTimeMillis()
 
         return database.withTransaction {
+            val initialSets = findInitialSetsForExercise(exerciseDefinitionId)
             val sortOrder = workoutExerciseDao.getNextSortOrder(workoutId)
 
             val workoutExerciseId: Long = workoutExerciseDao.insertWorkoutExercise(
@@ -325,6 +326,17 @@ class RoomWorkoutRepository @Inject constructor(
                 )
             )
 
+            initialSets.forEach { sourceSet ->
+                workoutExerciseSetDao.insertSet(
+                    sourceSet.copy(
+                        id = 0L,
+                        workoutExerciseId = workoutExerciseId,
+                        createdAt = now,
+                        updatedAt = now,
+                    )
+                )
+            }
+
             workoutDao.touchWorkout(
                 id = workoutId,
                 updatedAt = now,
@@ -332,6 +344,39 @@ class RoomWorkoutRepository @Inject constructor(
 
             workoutExerciseId
         }
+    }
+
+    private suspend fun findInitialSetsForExercise(
+        exerciseDefinitionId: Long,
+    ): List<WorkoutExerciseSetEntity> {
+        val latestProgressPoint = progressDao
+            .getLatestProgressPointWithSetsByExerciseDefinitionId(exerciseDefinitionId)
+
+        if (latestProgressPoint != null && latestProgressPoint.sets.isNotEmpty()) {
+            return latestProgressPoint.sets
+                .sortedBy { set -> set.setNumber }
+                .map { set ->
+                    WorkoutExerciseSetEntity(
+                        workoutExerciseId = 0L,
+                        setNumber = set.setNumber,
+                        reps = set.reps,
+                        loadType = set.loadType,
+                        weightValue = set.weightValue,
+                        weightUnit = set.weightUnit,
+                        durationSeconds = set.durationSeconds,
+                        createdAt = 0L,
+                        updatedAt = 0L,
+                    )
+                }
+        }
+
+        val sourceWorkoutExerciseId = workoutExerciseDao
+            .getMostRecentlyUpdatedWorkoutExerciseIdWithSets(exerciseDefinitionId)
+            ?: return emptyList()
+
+        return workoutExerciseSetDao
+            .getSetsByWorkoutExerciseId(sourceWorkoutExerciseId)
+            .sortedBy { set -> set.setNumber }
     }
 
     override suspend fun archiveWorkoutExercise(
