@@ -27,6 +27,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuDefaults
@@ -582,8 +583,9 @@ private fun WorkoutExerciseSetRow(
                     ),
                 )
 
-                OutlinedTextField(
+                MeasurementField(
                     value = set.quantityText,
+                    unit = set.measurementUnit,
                     onValueChange = { value ->
                         onAction(
                             WorkoutEditorAction.SetQuantityChanged(
@@ -592,17 +594,7 @@ private fun WorkoutExerciseSetRow(
                             )
                         )
                     },
-                    modifier = Modifier.weight(1f),
-                    label = { Text("Кол-во") },
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions(
-                        keyboardType = KeyboardType.Decimal,
-                    ),
-                )
-
-                WeightUnitDropdown(
-                    weightUnit = set.measurementUnit,
-                    onWeightUnitChanged = { unit ->
+                    onUnitChanged = { unit ->
                         onAction(
                             WorkoutEditorAction.SetMeasurementUnitChanged(
                                 workoutExerciseSetId = set.id,
@@ -610,63 +602,68 @@ private fun WorkoutExerciseSetRow(
                             )
                         )
                     },
+                    modifier = Modifier.weight(1f),
                 )
             }
         }
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun WeightUnitDropdown(
-    weightUnit: WeightUnit,
-    onWeightUnitChanged: (WeightUnit) -> Unit,
+private fun MeasurementField(
+    value: String,
+    unit: WeightUnit,
+    onValueChange: (String) -> Unit,
+    onUnitChanged: (WeightUnit) -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     var isExpanded by remember { mutableStateOf(false) }
 
-    ExposedDropdownMenuBox(
-        expanded = isExpanded,
-        onExpandedChange = {
-            isExpanded = !isExpanded
-        },
-    ) {
-        OutlinedTextField(
-            value = weightUnit.shortLabel,
-            onValueChange = {},
-            modifier = Modifier
-                .menuAnchor()
-                .width(92.dp),
-            label = {
-                Text("Ед.")
-            },
-            readOnly = true,
-            singleLine = true,
-            trailingIcon = {
-                ExposedDropdownMenuDefaults.TrailingIcon(
-                    expanded = isExpanded,
-                )
-            },
-        )
+    OutlinedTextField(
+        value = value,
+        onValueChange = onValueChange,
+        modifier = modifier,
+        singleLine = true,
+        keyboardOptions = KeyboardOptions(
+            keyboardType = KeyboardType.Decimal,
+        ),
+        trailingIcon = {
+            Box {
+                Row(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(8.dp))
+                        .clickable { isExpanded = true }
+                        .padding(horizontal = 6.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        text = unit.shortLabel,
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                    Icon(
+                        imageVector = Icons.Default.KeyboardArrowDown,
+                        contentDescription = "Выбрать единицу измерения",
+                        modifier = Modifier.size(18.dp),
+                    )
+                }
 
-        ExposedDropdownMenu(
-            expanded = isExpanded,
-            onDismissRequest = {
-                isExpanded = false
-            },
-        ) {
-            WeightUnit.entries.forEach { unit ->
-                DropdownMenuItem(
-                    text = {
-                        Text(unit.shortLabel)
-                    },
-                    onClick = {
-                        onWeightUnitChanged(unit)
-                        isExpanded = false
-                    },
-                )
+                DropdownMenu(
+                    expanded = isExpanded,
+                    onDismissRequest = { isExpanded = false },
+                ) {
+                    WeightUnit.entries.forEach { item ->
+                        DropdownMenuItem(
+                            text = { Text(item.shortLabel) },
+                            onClick = {
+                                onUnitChanged(item)
+                                isExpanded = false
+                            },
+                        )
+                    }
+                }
             }
-        }
-    }
+        },
+    )
 }
 
 @Composable

@@ -13,15 +13,15 @@ enum class WeightUnit(
         isTimeUnit = false,
     ),
     MIN(
-        shortLabel = "мин",
+        shortLabel = "min",
         isTimeUnit = true,
     ),
     SEC(
-        shortLabel = "сек",
+        shortLabel = "sec",
         isTimeUnit = true,
     ),
     DEG(
-        shortLabel = "°",
+        shortLabel = "deg°",
         isTimeUnit = false,
     ),
 }
