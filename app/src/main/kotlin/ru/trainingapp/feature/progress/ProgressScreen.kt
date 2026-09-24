@@ -1,6 +1,5 @@
 package ru.trainingapp.feature.progress
 
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -32,9 +31,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -184,12 +181,13 @@ private fun ProgressChartCard(
                 )
             }
 
-            ExerciseProgressLineChart(
+            ProgressLineChart(
                 series = uiState.series,
                 points = uiState.points,
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(220.dp),
+                seriesColor = ::progressSeriesColor,
             )
         }
     }
@@ -227,116 +225,6 @@ private fun ProgressSeriesLegend(
 }
 
 @Composable
-private fun ExerciseProgressLineChart(
-    series: List<ProgressChartSeriesUi>,
-    points: List<ProgressChartPointUi>,
-    modifier: Modifier = Modifier,
-) {
-    val seriesColors = series.mapIndexed { index, _ -> progressSeriesColor(index) }
-    val axisColor = MaterialTheme.colorScheme.outline
-    val gridColor = MaterialTheme.colorScheme.outlineVariant
-
-    Canvas(
-        modifier = modifier,
-    ) {
-        if (points.isEmpty() || series.isEmpty()) {
-            return@Canvas
-        }
-
-        val left = 12.dp.toPx()
-        val right = size.width - 12.dp.toPx()
-        val top = 12.dp.toPx()
-        val bottom = size.height - 24.dp.toPx()
-
-        fun x(index: Int): Float {
-            if (points.size == 1) {
-                return (left + right) / 2f
-            }
-
-            val progress = index.toFloat() / points.lastIndex.toFloat()
-            return left + ((right - left) * progress)
-        }
-
-        repeat(4) { index ->
-            val gridY = top + ((bottom - top) / 3f * index)
-
-            drawLine(
-                color = gridColor,
-                start = Offset(left, gridY),
-                end = Offset(right, gridY),
-                strokeWidth = 1.dp.toPx(),
-            )
-        }
-
-        drawLine(
-            color = axisColor,
-            start = Offset(left, bottom),
-            end = Offset(right, bottom),
-            strokeWidth = 1.dp.toPx(),
-        )
-
-        drawLine(
-            color = axisColor,
-            start = Offset(left, top),
-            end = Offset(left, bottom),
-            strokeWidth = 1.dp.toPx(),
-        )
-
-        series.forEachIndexed { seriesIndex, item ->
-            val indexedValues = points.mapIndexedNotNull { index, point ->
-                val value = point.valueBySeriesType(item.type) ?: return@mapIndexedNotNull null
-                index to value
-            }
-
-            if (indexedValues.isEmpty()) {
-                return@forEachIndexed
-            }
-
-            val minValue = indexedValues.minOf { (_, value) -> value }
-            val maxValue = indexedValues.maxOf { (_, value) -> value }
-            val isFlatLine = minValue == maxValue
-            val valueRange = (maxValue - minValue).takeIf { range -> range > 0.0 } ?: 1.0
-
-            fun y(value: Double): Float {
-                if (isFlatLine) {
-                    return (top + bottom) / 2f
-                }
-
-                val progress = ((value - minValue) / valueRange).toFloat()
-                return bottom - ((bottom - top) * progress)
-            }
-
-            indexedValues.zipWithNext().forEach { pair ->
-                drawLine(
-                    color = seriesColors[seriesIndex],
-                    start = Offset(
-                        x = x(pair.first.first),
-                        y = y(pair.first.second),
-                    ),
-                    end = Offset(
-                        x = x(pair.second.first),
-                        y = y(pair.second.second),
-                    ),
-                    strokeWidth = 3.dp.toPx(),
-                    cap = StrokeCap.Round,
-                )
-            }
-
-            indexedValues.forEach { (index, value) ->
-                drawCircle(
-                    color = seriesColors[seriesIndex],
-                    radius = 4.dp.toPx(),
-                    center = Offset(
-                        x = x(index),
-                        y = y(value),
-                    ),
-                )
-            }
-        }
-    }
-}
-
-@Composable
 private fun progressSeriesColor(
     index: Int,
 ): Color {
@@ -344,15 +232,5 @@ private fun progressSeriesColor(
         0 -> MaterialTheme.colorScheme.primary
         1 -> MaterialTheme.colorScheme.tertiary
         else -> MaterialTheme.colorScheme.secondary
-    }
-}
-
-private fun ProgressChartPointUi.valueBySeriesType(
-    type: ProgressChartSeriesType,
-): Double? {
-    return when (type) {
-        ProgressChartSeriesType.REPS -> repsValue
-        ProgressChartSeriesType.WEIGHT -> weightValue
-        ProgressChartSeriesType.DURATION -> durationValue
     }
 }

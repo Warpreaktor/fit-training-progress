@@ -1,6 +1,5 @@
 package ru.trainingapp.feature.progress
 
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -26,14 +25,16 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -89,7 +90,7 @@ private fun WorkoutProgressScreen(
                 }
             }
 
-            uiState.exercises.isEmpty() -> {
+            uiState.exercises.isEmpty() && uiState.archivedExercises.isEmpty() -> {
                 EmptyState(
                     title = uiState.emptyTitle,
                     message = uiState.emptyMessage,
@@ -102,6 +103,7 @@ private fun WorkoutProgressScreen(
             else -> {
                 WorkoutProgressContent(
                     exercises = uiState.exercises,
+                    archivedExercises = uiState.archivedExercises,
                     modifier = Modifier
                         .fillMaxSize()
                         .padding(padding),
@@ -114,8 +116,11 @@ private fun WorkoutProgressScreen(
 @Composable
 private fun WorkoutProgressContent(
     exercises: List<WorkoutProgressExerciseUi>,
+    archivedExercises: List<WorkoutProgressExerciseUi>,
     modifier: Modifier = Modifier,
 ) {
+    var archivedExpanded by rememberSaveable { mutableStateOf(false) }
+
     LazyColumn(
         modifier = modifier,
         contentPadding = PaddingValues(16.dp),
@@ -126,6 +131,52 @@ private fun WorkoutProgressContent(
             key = { exercise -> exercise.workoutExerciseId },
         ) { exercise ->
             WorkoutExerciseProgressCard(exercise = exercise)
+        }
+
+        if (archivedExercises.isNotEmpty()) {
+            item(key = "archived_header") {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 8.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Column(
+                            modifier = Modifier.weight(1f),
+                            verticalArrangement = Arrangement.spacedBy(2.dp),
+                        ) {
+                            Text(
+                                text = "Удалённые упражнения (${archivedExercises.size})",
+                                style = MaterialTheme.typography.titleMedium,
+                            )
+                            Text(
+                                text = "Их прогресс сохранён, но они больше не входят в тренировку",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+
+                        TextButton(
+                            onClick = { archivedExpanded = !archivedExpanded },
+                        ) {
+                            Text(if (archivedExpanded) "Скрыть" else "Показать")
+                        }
+                    }
+                }
+            }
+
+            if (archivedExpanded) {
+                items(
+                    items = archivedExercises,
+                    key = { exercise -> "archived_${exercise.workoutExerciseId}" },
+                ) { exercise ->
+                    WorkoutExerciseProgressCard(exercise = exercise)
+                }
+            }
         }
     }
 }
@@ -164,12 +215,13 @@ private fun WorkoutExerciseProgressCard(
                 )
             }
 
-            WorkoutProgressLineChart(
+            ProgressLineChart(
                 series = exercise.series,
                 points = exercise.points,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(180.dp),
+                    .height(210.dp),
+                seriesColor = ::workoutProgressSeriesColor,
             )
 
             HorizontalDivider()
@@ -215,116 +267,6 @@ private fun WorkoutProgressSeriesLegend(
 }
 
 @Composable
-private fun WorkoutProgressLineChart(
-    series: List<ProgressChartSeriesUi>,
-    points: List<ProgressChartPointUi>,
-    modifier: Modifier = Modifier,
-) {
-    val seriesColors = series.mapIndexed { index, _ -> workoutProgressSeriesColor(index) }
-    val axisColor = MaterialTheme.colorScheme.outline
-    val gridColor = MaterialTheme.colorScheme.outlineVariant
-
-    Canvas(
-        modifier = modifier,
-    ) {
-        if (points.isEmpty() || series.isEmpty()) {
-            return@Canvas
-        }
-
-        val left = 12.dp.toPx()
-        val right = size.width - 12.dp.toPx()
-        val top = 12.dp.toPx()
-        val bottom = size.height - 24.dp.toPx()
-
-        fun x(index: Int): Float {
-            if (points.size == 1) {
-                return (left + right) / 2f
-            }
-
-            val progress = index.toFloat() / points.lastIndex.toFloat()
-            return left + ((right - left) * progress)
-        }
-
-        repeat(4) { index ->
-            val gridY = top + ((bottom - top) / 3f * index)
-
-            drawLine(
-                color = gridColor,
-                start = Offset(left, gridY),
-                end = Offset(right, gridY),
-                strokeWidth = 1.dp.toPx(),
-            )
-        }
-
-        drawLine(
-            color = axisColor,
-            start = Offset(left, bottom),
-            end = Offset(right, bottom),
-            strokeWidth = 1.dp.toPx(),
-        )
-
-        drawLine(
-            color = axisColor,
-            start = Offset(left, top),
-            end = Offset(left, bottom),
-            strokeWidth = 1.dp.toPx(),
-        )
-
-        series.forEachIndexed { seriesIndex, item ->
-            val indexedValues = points.mapIndexedNotNull { index, point ->
-                val value = point.valueBySeriesType(item.type) ?: return@mapIndexedNotNull null
-                index to value
-            }
-
-            if (indexedValues.isEmpty()) {
-                return@forEachIndexed
-            }
-
-            val minValue = indexedValues.minOf { (_, value) -> value }
-            val maxValue = indexedValues.maxOf { (_, value) -> value }
-            val isFlatLine = minValue == maxValue
-            val valueRange = (maxValue - minValue).takeIf { range -> range > 0.0 } ?: 1.0
-
-            fun y(value: Double): Float {
-                if (isFlatLine) {
-                    return (top + bottom) / 2f
-                }
-
-                val progress = ((value - minValue) / valueRange).toFloat()
-                return bottom - ((bottom - top) * progress)
-            }
-
-            indexedValues.zipWithNext().forEach { pair ->
-                drawLine(
-                    color = seriesColors[seriesIndex],
-                    start = Offset(
-                        x = x(pair.first.first),
-                        y = y(pair.first.second),
-                    ),
-                    end = Offset(
-                        x = x(pair.second.first),
-                        y = y(pair.second.second),
-                    ),
-                    strokeWidth = 3.dp.toPx(),
-                    cap = StrokeCap.Round,
-                )
-            }
-
-            indexedValues.forEach { (index, value) ->
-                drawCircle(
-                    color = seriesColors[seriesIndex],
-                    radius = 4.dp.toPx(),
-                    center = Offset(
-                        x = x(index),
-                        y = y(value),
-                    ),
-                )
-            }
-        }
-    }
-}
-
-@Composable
 private fun workoutProgressSeriesColor(
     index: Int,
 ): Color {
@@ -332,15 +274,5 @@ private fun workoutProgressSeriesColor(
         0 -> MaterialTheme.colorScheme.primary
         1 -> MaterialTheme.colorScheme.tertiary
         else -> MaterialTheme.colorScheme.secondary
-    }
-}
-
-private fun ProgressChartPointUi.valueBySeriesType(
-    type: ProgressChartSeriesType,
-): Double? {
-    return when (type) {
-        ProgressChartSeriesType.REPS -> repsValue
-        ProgressChartSeriesType.WEIGHT -> weightValue
-        ProgressChartSeriesType.DURATION -> durationValue
     }
 }

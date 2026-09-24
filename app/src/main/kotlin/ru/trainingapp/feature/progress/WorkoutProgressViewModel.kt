@@ -7,10 +7,11 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import java.util.Locale
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flowOf
-import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import ru.trainingapp.core.domain.progress.ObserveWorkoutProgressUseCase
+import ru.trainingapp.core.domain.workout.ObserveWorkoutEditorUseCase
 import ru.trainingapp.core.model.WorkoutExerciseProgressPoint
 import ru.trainingapp.navigation.AppRoute
 import javax.inject.Inject
@@ -19,6 +20,7 @@ import javax.inject.Inject
 class WorkoutProgressViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
     observeWorkoutProgressUseCase: ObserveWorkoutProgressUseCase,
+    observeWorkoutEditorUseCase: ObserveWorkoutEditorUseCase,
 ) : ViewModel() {
 
     private val workoutId: Long = savedStateHandle
@@ -34,10 +36,17 @@ class WorkoutProgressViewModel @Inject constructor(
             )
         )
     } else {
-        observeWorkoutProgressUseCase(workoutId)
-            .map { points ->
-                points.toWorkoutProgressUiState()
-            }
+        combine(
+            observeWorkoutProgressUseCase(workoutId),
+            observeWorkoutEditorUseCase(workoutId),
+        ) { points, editorData ->
+            points.toWorkoutProgressUiState(
+                activeWorkoutExerciseIds = editorData
+                    ?.exercises
+                    ?.mapTo(mutableSetOf()) { exercise -> exercise.id }
+                    .orEmpty(),
+            )
+        }
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5_000),
@@ -51,6 +60,7 @@ data class WorkoutProgressUiState(
     val title: String = "Прогресс тренировки",
     val isLoading: Boolean = true,
     val exercises: List<WorkoutProgressExerciseUi> = emptyList(),
+    val archivedExercises: List<WorkoutProgressExerciseUi> = emptyList(),
     val emptyTitle: String = "Пока нет прогресса",
     val emptyMessage: String = "Измени значения упражнений и выйди из редактора. После фиксации появятся графики.",
 )
@@ -63,13 +73,15 @@ data class WorkoutProgressExerciseUi(
     val points: List<ProgressChartPointUi>,
 )
 
-private fun List<WorkoutExerciseProgressPoint>.toWorkoutProgressUiState(): WorkoutProgressUiState {
-    val exercises = groupBy { point -> point.workoutExerciseId }
+private fun List<WorkoutExerciseProgressPoint>.toWorkoutProgressUiState(
+    activeWorkoutExerciseIds: Set<Long>,
+): WorkoutProgressUiState {
+    val allExercises = groupBy { point -> point.workoutExerciseId }
         .values
         .mapNotNull { points -> points.toWorkoutProgressExerciseUi() }
         .sortedBy { exercise -> exercise.exerciseName.lowercase(Locale.getDefault()) }
 
-    if (exercises.isEmpty()) {
+    if (allExercises.isEmpty()) {
         return WorkoutProgressUiState(
             isLoading = false,
             emptyTitle = "Пока нет прогресса",
@@ -77,9 +89,14 @@ private fun List<WorkoutExerciseProgressPoint>.toWorkoutProgressUiState(): Worko
         )
     }
 
+    val (activeExercises, archivedExercises) = allExercises.partition { exercise ->
+        exercise.workoutExerciseId in activeWorkoutExerciseIds
+    }
+
     return WorkoutProgressUiState(
         isLoading = false,
-        exercises = exercises,
+        exercises = activeExercises,
+        archivedExercises = archivedExercises,
     )
 }
 
