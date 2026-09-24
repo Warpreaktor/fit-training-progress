@@ -103,6 +103,7 @@ fun WorkoutListRoute(
         onSaveWorkoutClick = viewModel::onSaveWorkoutClick,
         onFilterTagClick = viewModel::onFilterTagClick,
         onClearFilterClick = viewModel::onClearFilterClick,
+        onEditWorkoutClick = viewModel::onEditWorkoutClick,
         onEditWorkoutTagsClick = viewModel::onEditWorkoutTagsClick,
         onDismissTagEditor = viewModel::onDismissTagEditor,
         onToggleTagSelection = viewModel::onToggleTagSelection,
@@ -145,13 +146,14 @@ fun WorkoutListScreen(
     onSaveWorkoutClick: () -> Unit,
     onFilterTagClick: (Long) -> Unit,
     onClearFilterClick: () -> Unit,
+    onEditWorkoutClick: (Workout) -> Unit,
     onEditWorkoutTagsClick: (Workout) -> Unit,
     onDismissTagEditor: () -> Unit,
     onToggleTagSelection: (Long) -> Unit,
     onNewTagNameChange: (String) -> Unit,
     onCreateTagClick: () -> Unit,
     onSaveWorkoutTagsClick: () -> Unit,
-    onDuplicateWorkoutClick: (Long) -> Unit,
+    onDuplicateWorkoutClick: (Workout) -> Unit,
     onMoveWorkoutUpClick: (Long) -> Unit,
     onMoveWorkoutDownClick: (Long) -> Unit,
     onExportWorkoutClick: (Workout) -> Unit,
@@ -259,9 +261,10 @@ fun WorkoutListScreen(
                             canMoveDown = isOrderEditAvailable && index < uiState.workouts.lastIndex,
                             onOpenClick = { onOpenWorkout(workout.id) },
                             onProgressClick = { onOpenWorkoutProgress(workout.id) },
+                            onEditClick = { onEditWorkoutClick(workout) },
                             onEditTagsClick = { onEditWorkoutTagsClick(workout) },
                             onArchiveClick = { onArchiveWorkoutClick(workout.id) },
-                            onDuplicateClick = { onDuplicateWorkoutClick(workout.id) },
+                            onDuplicateClick = { onDuplicateWorkoutClick(workout) },
                             onMoveUpClick = { onMoveWorkoutUpClick(workout.id) },
                             onMoveDownClick = { onMoveWorkoutDownClick(workout.id) },
                             onExportClick = { onExportWorkoutClick(workout) },
@@ -304,6 +307,7 @@ private fun WorkoutCard(
     canMoveDown: Boolean,
     onOpenClick: () -> Unit,
     onProgressClick: () -> Unit,
+    onEditClick: () -> Unit,
     onEditTagsClick: () -> Unit,
     onArchiveClick: () -> Unit,
     onDuplicateClick: () -> Unit,
@@ -403,6 +407,16 @@ private fun WorkoutCard(
                 ) {
                     DropdownMenuItem(
                         text = {
+                            Text("Редактировать")
+                        },
+                        onClick = {
+                            isMenuExpanded = false
+                            onEditClick()
+                        },
+                    )
+
+                    DropdownMenuItem(
+                        text = {
                             Text("Копировать")
                         },
                         onClick = {
@@ -484,7 +498,13 @@ private fun CreateWorkoutDialog(
     AlertDialog(
         onDismissRequest = onDismiss,
         title = {
-            Text("Новая тренировка")
+            Text(
+                when (editor.mode) {
+                    WorkoutEditorMode.CREATE -> "Новая тренировка"
+                    WorkoutEditorMode.EDIT -> "Редактировать тренировку"
+                    WorkoutEditorMode.DUPLICATE -> "Копировать тренировку"
+                }
+            )
         },
         text = {
             Column(
@@ -502,18 +522,26 @@ private fun CreateWorkoutDialog(
                     singleLine = true,
                 )
 
-                OutlinedTextField(
-                    modifier = Modifier.fillMaxWidth(),
-                    value = editor.description,
-                    onValueChange = onDescriptionChange,
-                    label = { Text("Описание") },
-                    minLines = 3,
-                )
+                if (editor.mode != WorkoutEditorMode.DUPLICATE) {
+                    OutlinedTextField(
+                        modifier = Modifier.fillMaxWidth(),
+                        value = editor.description,
+                        onValueChange = onDescriptionChange,
+                        label = { Text("Описание") },
+                        minLines = 3,
+                    )
+                }
             }
         },
         confirmButton = {
             TextButton(onClick = onSave) {
-                Text("Создать")
+                Text(
+                    when (editor.mode) {
+                        WorkoutEditorMode.CREATE -> "Создать"
+                        WorkoutEditorMode.EDIT -> "Сохранить"
+                        WorkoutEditorMode.DUPLICATE -> "Копировать"
+                    }
+                )
             }
         },
         dismissButton = {

@@ -20,6 +20,7 @@ import ru.trainingapp.core.domain.workout.DuplicateWorkoutUseCase
 import ru.trainingapp.core.domain.workout.MoveWorkoutUseCase
 import ru.trainingapp.core.domain.workout.ObserveWorkoutUseCase
 import ru.trainingapp.core.domain.workout.ReplaceWorkoutTagsUseCase
+import ru.trainingapp.core.domain.workout.UpdateWorkoutUseCase
 import ru.trainingapp.core.model.Tag
 import ru.trainingapp.core.model.Workout
 import javax.inject.Inject
@@ -33,6 +34,7 @@ class WorkoutListViewModel @Inject constructor(
     private val createTagUseCase: CreateTagUseCase,
     private val replaceWorkoutTagsUseCase: ReplaceWorkoutTagsUseCase,
     private val duplicateWorkoutUseCase: DuplicateWorkoutUseCase,
+    private val updateWorkoutUseCase: UpdateWorkoutUseCase,
     private val moveWorkoutUseCase: MoveWorkoutUseCase,
     private val exportWorkoutUseCase: ExportWorkoutUseCase,
     private val importTrainingPackUseCase: ImportTrainingPackUseCase,
@@ -86,9 +88,30 @@ class WorkoutListViewModel @Inject constructor(
     fun onCreateWorkoutClick() {
         editorState.value = WorkoutEditorState(
             isVisible = true,
+            mode = WorkoutEditorMode.CREATE,
             name = "",
             description = "",
             nameError = null,
+        )
+    }
+
+    fun onEditWorkoutClick(workout: Workout) {
+        editorState.value = WorkoutEditorState(
+            isVisible = true,
+            mode = WorkoutEditorMode.EDIT,
+            workoutId = workout.id,
+            name = workout.name,
+            description = workout.description.orEmpty(),
+        )
+    }
+
+    fun onDuplicateWorkoutClick(workout: Workout) {
+        editorState.value = WorkoutEditorState(
+            isVisible = true,
+            mode = WorkoutEditorMode.DUPLICATE,
+            workoutId = workout.id,
+            name = workout.name,
+            description = workout.description.orEmpty(),
         )
     }
 
@@ -116,10 +139,29 @@ class WorkoutListViewModel @Inject constructor(
         }
 
         viewModelScope.launch {
-            createWorkoutUseCase(
-                name = editor.name,
-                description = editor.description,
-            )
+            when (editor.mode) {
+                WorkoutEditorMode.CREATE -> {
+                    createWorkoutUseCase(
+                        name = editor.name,
+                        description = editor.description,
+                    )
+                }
+
+                WorkoutEditorMode.EDIT -> {
+                    updateWorkoutUseCase(
+                        workoutId = editor.workoutId,
+                        name = editor.name,
+                        description = editor.description,
+                    )
+                }
+
+                WorkoutEditorMode.DUPLICATE -> {
+                    duplicateWorkoutUseCase(
+                        workoutId = editor.workoutId,
+                        name = editor.name,
+                    )
+                }
+            }
 
             editorState.value = WorkoutEditorState()
         }
@@ -128,12 +170,6 @@ class WorkoutListViewModel @Inject constructor(
     fun onArchiveWorkoutClick(id: Long) {
         viewModelScope.launch {
             archiveWorkoutUseCase(id)
-        }
-    }
-
-    fun onDuplicateWorkoutClick(id: Long) {
-        viewModelScope.launch {
-            duplicateWorkoutUseCase(id)
         }
     }
 
@@ -319,10 +355,18 @@ data class WorkoutListUiState(
 
 data class WorkoutEditorState(
     val isVisible: Boolean = false,
+    val mode: WorkoutEditorMode = WorkoutEditorMode.CREATE,
+    val workoutId: Long = 0L,
     val name: String = "",
     val description: String = "",
     val nameError: String? = null,
 )
+
+enum class WorkoutEditorMode {
+    CREATE,
+    EDIT,
+    DUPLICATE,
+}
 
 data class WorkoutTagEditorState(
     val isVisible: Boolean = false,

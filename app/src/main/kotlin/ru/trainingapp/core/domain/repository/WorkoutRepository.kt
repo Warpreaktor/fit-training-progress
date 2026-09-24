@@ -25,7 +25,14 @@ interface WorkoutRepository {
 
     suspend fun duplicateWorkout(
         workoutId: Long,
+        name: String,
     ): Long
+
+    suspend fun updateWorkout(
+        workoutId: Long,
+        name: String,
+        description: String,
+    )
 
     suspend fun moveWorkoutUp(
         workoutId: Long,

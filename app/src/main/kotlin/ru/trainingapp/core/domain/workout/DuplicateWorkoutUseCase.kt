@@ -7,9 +7,18 @@ class DuplicateWorkoutUseCase @Inject constructor(
     private val repository: WorkoutRepository,
 ) {
 
-    suspend operator fun invoke(workoutId: Long): Long {
+    suspend operator fun invoke(
+        workoutId: Long,
+        name: String,
+    ): Long {
         if (workoutId <= 0L) return 0L
 
-        return repository.duplicateWorkout(workoutId)
+        val normalizedName = name.trim()
+        if (normalizedName.isBlank()) return 0L
+
+        return repository.duplicateWorkout(
+            workoutId = workoutId,
+            name = normalizedName,
+        )
     }
 }

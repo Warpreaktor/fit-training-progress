@@ -145,6 +145,7 @@ class RoomWorkoutRepository @Inject constructor(
 
     override suspend fun duplicateWorkout(
         workoutId: Long,
+        name: String,
     ): Long {
         val now = System.currentTimeMillis()
 
@@ -155,7 +156,7 @@ class RoomWorkoutRepository @Inject constructor(
             val duplicatedWorkoutId = workoutDao.insertWorkout(
                 sourceWorkout.copy(
                     id = 0L,
-                    name = "${sourceWorkout.name} (копия)",
+                    name = name.trim(),
                     sortOrder = workoutDao.getNextSortOrder(),
                     isLocked = false,
                     isArchived = false,
@@ -204,6 +205,22 @@ class RoomWorkoutRepository @Inject constructor(
 
             duplicatedWorkoutId
         }
+    }
+
+    override suspend fun updateWorkout(
+        workoutId: Long,
+        name: String,
+        description: String,
+    ) {
+        val workout = workoutDao.getWorkoutById(workoutId) ?: return
+
+        workoutDao.updateWorkout(
+            workout.copy(
+                name = name.trim(),
+                description = description.trim(),
+                updatedAt = System.currentTimeMillis(),
+            )
+        )
     }
 
     override suspend fun moveWorkoutUp(
