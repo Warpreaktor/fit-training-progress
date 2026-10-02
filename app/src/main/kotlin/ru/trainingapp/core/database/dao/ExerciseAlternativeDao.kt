@@ -19,6 +19,18 @@ interface ExerciseAlternativeDao {
     )
     fun observeAlternativeCrossRefs(): Flow<List<ExerciseDefinitionAlternativeCrossRefEntity>>
 
+
+    @Query(
+        """
+        SELECT alternativeExerciseDefinitionId
+        FROM exercise_definition_alternative_cross_refs
+        WHERE exerciseDefinitionId = :exerciseDefinitionId
+        """
+    )
+    suspend fun getAlternativeExerciseDefinitionIds(
+        exerciseDefinitionId: Long,
+    ): List<Long>
+
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun insertAlternativeCrossRef(
         entity: ExerciseDefinitionAlternativeCrossRefEntity,

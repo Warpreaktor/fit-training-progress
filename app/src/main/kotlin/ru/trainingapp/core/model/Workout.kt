@@ -28,6 +28,8 @@ data class WorkoutExercise(
     val id: Long,
     val workoutId: Long,
     val exerciseDefinitionId: Long,
+    val selectedExerciseDefinitionId: Long,
+    val originalExerciseName: String,
     val exerciseName: String,
     val sortOrder: Int,
     val comment: String?,

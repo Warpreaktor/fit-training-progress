@@ -80,13 +80,15 @@ interface ProgressDao {
         SELECT *
         FROM workout_exercise_progress_points
         WHERE workoutExerciseId = :workoutExerciseId
+          AND exerciseDefinitionId = :exerciseDefinitionId
           AND createdAt >= :dayStartMillis
           AND createdAt < :dayEndMillis
         ORDER BY createdAt DESC, revision DESC
         """
     )
-    suspend fun getProgressPointsByWorkoutExerciseIdAndDay(
+    suspend fun getProgressPointsByWorkoutExerciseIdAndExerciseDefinitionIdAndDay(
         workoutExerciseId: Long,
+        exerciseDefinitionId: Long,
         dayStartMillis: Long,
         dayEndMillis: Long,
     ): List<WorkoutExerciseProgressPointEntity>

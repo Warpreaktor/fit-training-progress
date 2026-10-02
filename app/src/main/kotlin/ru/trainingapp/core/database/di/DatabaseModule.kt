@@ -13,6 +13,7 @@ import ru.trainingapp.core.database.migration.MIGRATION_1_2
 import ru.trainingapp.core.database.migration.MIGRATION_2_3
 import ru.trainingapp.core.database.migration.MIGRATION_3_4
 import ru.trainingapp.core.database.migration.MIGRATION_4_5
+import ru.trainingapp.core.database.migration.MIGRATION_5_6
 import javax.inject.Singleton
 
 @Module
@@ -33,6 +34,7 @@ object DatabaseModule {
             .addMigrations(MIGRATION_2_3)
             .addMigrations(MIGRATION_3_4)
             .addMigrations(MIGRATION_4_5)
+            .addMigrations(MIGRATION_5_6)
             .build()
     }
 
@@ -51,6 +53,14 @@ object DatabaseModule {
     @Provides
     fun provideWorkoutExerciseSetDao(database: TrainingDatabase) =
         database.workoutExerciseSetDao()
+
+    @Provides
+    fun provideWorkoutExerciseVariantSelectionDao(database: TrainingDatabase) =
+        database.workoutExerciseVariantSelectionDao()
+
+    @Provides
+    fun provideWorkoutExerciseVariantSetDao(database: TrainingDatabase) =
+        database.workoutExerciseVariantSetDao()
 
     @Provides
     fun providePendingWorkoutChangeDao(database: TrainingDatabase) =

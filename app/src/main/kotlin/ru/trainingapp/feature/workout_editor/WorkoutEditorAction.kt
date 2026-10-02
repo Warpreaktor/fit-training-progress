@@ -18,6 +18,11 @@ sealed interface WorkoutEditorAction {
         val exerciseDefinitionId: Long,
     ) : WorkoutEditorAction
 
+    data class ExerciseVariantSelected(
+        val workoutExerciseId: Long,
+        val exerciseDefinitionId: Long,
+    ) : WorkoutEditorAction
+
     data class ArchiveExerciseClick(
         val workoutExerciseId: Long,
     ) : WorkoutEditorAction

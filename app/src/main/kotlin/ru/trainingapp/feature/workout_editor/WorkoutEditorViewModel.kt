@@ -21,6 +21,7 @@ import ru.trainingapp.core.domain.workout.MoveWorkoutExerciseUseCase
 import ru.trainingapp.core.domain.workout.ObserveWorkoutEditorUseCase
 import ru.trainingapp.core.domain.workout.RemoveWorkoutExerciseSetUseCase
 import ru.trainingapp.core.domain.workout.ResetWorkoutCheckmarksUseCase
+import ru.trainingapp.core.domain.workout.SelectWorkoutExerciseVariantUseCase
 import ru.trainingapp.core.domain.workout.ToggleWorkoutExerciseCheckedUseCase
 import ru.trainingapp.core.domain.workout.UpdateWorkoutExerciseSetUseCase
 import ru.trainingapp.core.model.ExerciseDefinition
@@ -40,6 +41,7 @@ class WorkoutEditorViewModel @Inject constructor(
     private val updateWorkoutExerciseSetUseCase: UpdateWorkoutExerciseSetUseCase,
     private val toggleWorkoutExerciseCheckedUseCase: ToggleWorkoutExerciseCheckedUseCase,
     private val resetWorkoutCheckmarksUseCase: ResetWorkoutCheckmarksUseCase,
+    private val selectWorkoutExerciseVariantUseCase: SelectWorkoutExerciseVariantUseCase,
     private val commitPendingProgressUseCase: CommitPendingProgressUseCase,
 ) : ViewModel() {
 
@@ -66,6 +68,7 @@ class WorkoutEditorViewModel @Inject constructor(
     ) { exercises, query ->
         AddExercisePickerState(
             query = query,
+            allExercises = exercises,
             exercises = filterAvailableExercises(
                 exercises = exercises,
                 query = query,
@@ -89,8 +92,16 @@ class WorkoutEditorViewModel @Inject constructor(
                 ?.exercises
                 .orEmpty()
                 .map { exercise ->
+                    val alternatives = exercisePickerState.allExercises
+                        .firstOrNull { definition ->
+                            definition.id == exercise.exerciseDefinitionId
+                        }
+                        ?.alternatives
+                        .orEmpty()
+
                     exercise.toUi(
                         setDrafts = drafts,
+                        alternatives = alternatives,
                     )
                 },
             availableExercises = exercisePickerState.exercises,
@@ -131,6 +142,13 @@ class WorkoutEditorViewModel @Inject constructor(
 
             is WorkoutEditorAction.ExerciseSelected -> {
                 addExerciseToWorkout(
+                    exerciseDefinitionId = action.exerciseDefinitionId,
+                )
+            }
+
+            is WorkoutEditorAction.ExerciseVariantSelected -> {
+                selectExerciseVariant(
+                    workoutExerciseId = action.workoutExerciseId,
                     exerciseDefinitionId = action.exerciseDefinitionId,
                 )
             }
@@ -234,6 +252,28 @@ class WorkoutEditorViewModel @Inject constructor(
         launchOperation {
             addExerciseToWorkoutUseCase(
                 workoutId = workoutId,
+                exerciseDefinitionId = exerciseDefinitionId,
+            )
+        }
+    }
+
+    private fun selectExerciseVariant(
+        workoutExerciseId: Long,
+        exerciseDefinitionId: Long,
+    ) {
+        val setIds = uiState.value.exercises
+            .firstOrNull { exercise -> exercise.id == workoutExerciseId }
+            ?.sets
+            ?.mapTo(mutableSetOf()) { set -> set.id }
+            .orEmpty()
+
+        setDrafts.update { currentDrafts ->
+            currentDrafts - setIds
+        }
+
+        launchOperation {
+            selectWorkoutExerciseVariantUseCase(
+                workoutExerciseId = workoutExerciseId,
                 exerciseDefinitionId = exerciseDefinitionId,
             )
         }
@@ -506,5 +546,6 @@ class WorkoutEditorViewModel @Inject constructor(
 
 private data class AddExercisePickerState(
     val query: String,
+    val allExercises: List<ExerciseDefinition>,
     val exercises: List<ExerciseDefinition>,
 )

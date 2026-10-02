@@ -52,6 +52,11 @@ interface WorkoutRepository {
         exerciseDefinitionId: Long,
     ): Long
 
+    suspend fun selectWorkoutExerciseVariant(
+        workoutExerciseId: Long,
+        exerciseDefinitionId: Long,
+    )
+
     suspend fun archiveWorkoutExercise(
         workoutExerciseId: Long,
     )

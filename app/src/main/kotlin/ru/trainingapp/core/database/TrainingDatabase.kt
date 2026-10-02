@@ -13,6 +13,8 @@ import ru.trainingapp.core.database.dao.TagDao
 import ru.trainingapp.core.database.dao.WorkoutDao
 import ru.trainingapp.core.database.dao.WorkoutExerciseDao
 import ru.trainingapp.core.database.dao.WorkoutExerciseSetDao
+import ru.trainingapp.core.database.dao.WorkoutExerciseVariantSelectionDao
+import ru.trainingapp.core.database.dao.WorkoutExerciseVariantSetDao
 import ru.trainingapp.core.database.entity.ExerciseDefinitionAlternativeCrossRefEntity
 import ru.trainingapp.core.database.entity.ExerciseDefinitionEntity
 import ru.trainingapp.core.database.entity.ExerciseDefinitionTagCrossRefEntity
@@ -24,6 +26,8 @@ import ru.trainingapp.core.database.entity.WorkoutExerciseEntity
 import ru.trainingapp.core.database.entity.WorkoutExerciseProgressPointEntity
 import ru.trainingapp.core.database.entity.WorkoutExerciseProgressSetEntity
 import ru.trainingapp.core.database.entity.WorkoutExerciseSetEntity
+import ru.trainingapp.core.database.entity.WorkoutExerciseVariantSelectionEntity
+import ru.trainingapp.core.database.entity.WorkoutExerciseVariantSetEntity
 import ru.trainingapp.core.database.entity.WorkoutTagCrossRefEntity
 
 @Database(
@@ -32,6 +36,8 @@ import ru.trainingapp.core.database.entity.WorkoutTagCrossRefEntity
         WorkoutEntity::class,
         WorkoutExerciseEntity::class,
         WorkoutExerciseSetEntity::class,
+        WorkoutExerciseVariantSelectionEntity::class,
+        WorkoutExerciseVariantSetEntity::class,
         PendingWorkoutChangeEntity::class,
         WorkoutExerciseProgressPointEntity::class,
         WorkoutExerciseProgressSetEntity::class,
@@ -41,7 +47,7 @@ import ru.trainingapp.core.database.entity.WorkoutTagCrossRefEntity
         ExerciseDefinitionAlternativeCrossRefEntity::class,
         ExerciseImageEntity::class,
     ],
-    version = 5,
+    version = 6,
     exportSchema = true
 )
 @TypeConverters(DatabaseConverters::class)
@@ -54,6 +60,10 @@ abstract class TrainingDatabase : RoomDatabase() {
     abstract fun workoutExerciseDao(): WorkoutExerciseDao
 
     abstract fun workoutExerciseSetDao(): WorkoutExerciseSetDao
+
+    abstract fun workoutExerciseVariantSelectionDao(): WorkoutExerciseVariantSelectionDao
+
+    abstract fun workoutExerciseVariantSetDao(): WorkoutExerciseVariantSetDao
 
     abstract fun pendingWorkoutChangeDao(): PendingWorkoutChangeDao
 

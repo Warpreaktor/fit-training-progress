@@ -66,6 +66,17 @@ interface WorkoutExerciseSetDao {
     )
     suspend fun deleteSetById(id: Long)
 
+
+    @Query(
+        """
+        DELETE FROM workout_exercise_sets
+        WHERE workoutExerciseId = :workoutExerciseId
+        """
+    )
+    suspend fun deleteSetsByWorkoutExerciseId(
+        workoutExerciseId: Long,
+    )
+
     @Query(
         """
         SELECT COALESCE(MAX(setNumber), 0) + 1

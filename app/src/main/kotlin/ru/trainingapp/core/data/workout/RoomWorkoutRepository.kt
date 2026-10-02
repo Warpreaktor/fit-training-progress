@@ -11,18 +11,23 @@ import kotlinx.coroutines.flow.map
 import ru.trainingapp.core.data.mapper.toDomain
 import ru.trainingapp.core.data.mapper.toEntity
 import ru.trainingapp.core.database.TrainingDatabase
+import ru.trainingapp.core.database.dao.ExerciseAlternativeDao
 import ru.trainingapp.core.database.dao.PendingWorkoutChangeDao
 import ru.trainingapp.core.database.dao.ProgressDao
 import ru.trainingapp.core.database.dao.TagDao
 import ru.trainingapp.core.database.dao.WorkoutDao
 import ru.trainingapp.core.database.dao.WorkoutExerciseDao
 import ru.trainingapp.core.database.dao.WorkoutExerciseSetDao
+import ru.trainingapp.core.database.dao.WorkoutExerciseVariantSelectionDao
+import ru.trainingapp.core.database.dao.WorkoutExerciseVariantSetDao
 import ru.trainingapp.core.database.entity.PendingWorkoutChangeEntity
 import ru.trainingapp.core.database.entity.WorkoutEntity
 import ru.trainingapp.core.database.entity.WorkoutExerciseEntity
 import ru.trainingapp.core.database.entity.WorkoutExerciseProgressPointEntity
 import ru.trainingapp.core.database.entity.WorkoutExerciseProgressSetEntity
 import ru.trainingapp.core.database.entity.WorkoutExerciseSetEntity
+import ru.trainingapp.core.database.entity.WorkoutExerciseVariantSelectionEntity
+import ru.trainingapp.core.database.entity.WorkoutExerciseVariantSetEntity
 import ru.trainingapp.core.database.model.WorkoutExerciseListItemDbModel
 import ru.trainingapp.core.domain.repository.WorkoutRepository
 import ru.trainingapp.core.model.WeightUnit
@@ -39,6 +44,9 @@ class RoomWorkoutRepository @Inject constructor(
     private val workoutDao: WorkoutDao,
     private val workoutExerciseDao: WorkoutExerciseDao,
     private val workoutExerciseSetDao: WorkoutExerciseSetDao,
+    private val workoutExerciseVariantSelectionDao: WorkoutExerciseVariantSelectionDao,
+    private val workoutExerciseVariantSetDao: WorkoutExerciseVariantSetDao,
+    private val exerciseAlternativeDao: ExerciseAlternativeDao,
     private val pendingWorkoutChangeDao: PendingWorkoutChangeDao,
     private val progressDao: ProgressDao,
     private val tagDao: TagDao,
@@ -201,6 +209,32 @@ class RoomWorkoutRepository @Inject constructor(
                                 )
                             )
                         }
+
+                    workoutExerciseVariantSelectionDao
+                        .getSelection(sourceWorkoutExercise.id)
+                        ?.let { sourceSelection ->
+                            workoutExerciseVariantSelectionDao.upsertSelection(
+                                sourceSelection.copy(
+                                    workoutExerciseId = duplicatedWorkoutExerciseId,
+                                    updatedAt = now,
+                                )
+                            )
+                        }
+
+                    val duplicatedVariantSets = workoutExerciseVariantSetDao
+                        .getVariantSetsForWorkoutExercise(sourceWorkoutExercise.id)
+                        .map { sourceSet ->
+                            sourceSet.copy(
+                                id = 0L,
+                                workoutExerciseId = duplicatedWorkoutExerciseId,
+                                createdAt = now,
+                                updatedAt = now,
+                            )
+                        }
+
+                    if (duplicatedVariantSets.isNotEmpty()) {
+                        workoutExerciseVariantSetDao.insertVariantSets(duplicatedVariantSets)
+                    }
                 }
 
             duplicatedWorkoutId
@@ -377,6 +411,183 @@ class RoomWorkoutRepository @Inject constructor(
         return workoutExerciseSetDao
             .getSetsByWorkoutExerciseId(sourceWorkoutExerciseId)
             .sortedBy { set -> set.setNumber }
+    }
+
+    override suspend fun selectWorkoutExerciseVariant(
+        workoutExerciseId: Long,
+        exerciseDefinitionId: Long,
+    ) {
+        val now = System.currentTimeMillis()
+
+        database.withTransaction {
+            val workoutExercise = workoutExerciseDao
+                .getWorkoutExerciseById(workoutExerciseId)
+                ?: return@withTransaction
+
+            val allowedAlternativeIds = exerciseAlternativeDao
+                .getAlternativeExerciseDefinitionIds(workoutExercise.exerciseDefinitionId)
+
+            val isAllowedVariant =
+                exerciseDefinitionId == workoutExercise.exerciseDefinitionId ||
+                        exerciseDefinitionId in allowedAlternativeIds
+
+            if (!isAllowedVariant) {
+                return@withTransaction
+            }
+
+            val currentExerciseDefinitionId = workoutExerciseVariantSelectionDao
+                .getSelection(workoutExerciseId)
+                ?.exerciseDefinitionId
+                ?: workoutExercise.exerciseDefinitionId
+
+            if (currentExerciseDefinitionId == exerciseDefinitionId) {
+                return@withTransaction
+            }
+
+            val pendingChanges = pendingWorkoutChangeDao
+                .getPendingChangesByWorkoutExerciseId(workoutExerciseId)
+
+            if (pendingChanges.isNotEmpty()) {
+                saveDailyProgressPointForWorkoutExercise(
+                    workoutExerciseId = workoutExerciseId,
+                    createdAt = now,
+                )
+            }
+
+            val currentSets = workoutExerciseSetDao
+                .getSetsByWorkoutExerciseId(workoutExerciseId)
+                .sortedBy { set -> set.setNumber }
+
+            workoutExerciseVariantSetDao.replaceVariantSets(
+                workoutExerciseId = workoutExerciseId,
+                exerciseDefinitionId = currentExerciseDefinitionId,
+                entities = currentSets.map { set ->
+                    set.toVariantSetEntity(
+                        exerciseDefinitionId = currentExerciseDefinitionId,
+                        updatedAt = now,
+                    )
+                },
+            )
+
+            pendingWorkoutChangeDao
+                .deletePendingChangesByWorkoutExerciseId(workoutExerciseId)
+
+            workoutExerciseSetDao
+                .deleteSetsByWorkoutExerciseId(workoutExerciseId)
+
+            val storedTargetSets = workoutExerciseVariantSetDao.getVariantSets(
+                workoutExerciseId = workoutExerciseId,
+                exerciseDefinitionId = exerciseDefinitionId,
+            )
+
+            val targetSets = when {
+                storedTargetSets.isNotEmpty() -> {
+                    storedTargetSets.map { set ->
+                        set.toWorkoutExerciseSetEntity(
+                            workoutExerciseId = workoutExerciseId,
+                            createdAt = now,
+                            updatedAt = now,
+                        )
+                    }
+                }
+
+                else -> {
+                    val knownSets = findInitialSetsForExercise(exerciseDefinitionId)
+
+                    if (knownSets.isNotEmpty()) {
+                        knownSets.map { set ->
+                            set.copy(
+                                id = 0L,
+                                workoutExerciseId = workoutExerciseId,
+                                createdAt = now,
+                                updatedAt = now,
+                            )
+                        }
+                    } else {
+                        listOf(
+                            createEmptyVariantSet(
+                                workoutExerciseId = workoutExerciseId,
+                                now = now,
+                            )
+                        )
+                    }
+                }
+            }
+
+            targetSets.forEach { set ->
+                workoutExerciseSetDao.insertSet(set)
+            }
+
+            workoutExerciseVariantSelectionDao.upsertSelection(
+                WorkoutExerciseVariantSelectionEntity(
+                    workoutExerciseId = workoutExerciseId,
+                    exerciseDefinitionId = exerciseDefinitionId,
+                    updatedAt = now,
+                )
+            )
+
+            workoutExerciseDao.updateWorkoutExercise(
+                workoutExercise.copy(updatedAt = now)
+            )
+
+            workoutDao.touchWorkout(
+                id = workoutExercise.workoutId,
+                updatedAt = now,
+            )
+        }
+    }
+
+    private fun WorkoutExerciseSetEntity.toVariantSetEntity(
+        exerciseDefinitionId: Long,
+        updatedAt: Long,
+    ): WorkoutExerciseVariantSetEntity {
+        return WorkoutExerciseVariantSetEntity(
+            workoutExerciseId = workoutExerciseId,
+            exerciseDefinitionId = exerciseDefinitionId,
+            setNumber = setNumber,
+            reps = reps,
+            loadType = loadType,
+            weightValue = weightValue,
+            weightUnit = weightUnit,
+            durationSeconds = durationSeconds,
+            createdAt = createdAt,
+            updatedAt = updatedAt,
+        )
+    }
+
+    private fun WorkoutExerciseVariantSetEntity.toWorkoutExerciseSetEntity(
+        workoutExerciseId: Long,
+        createdAt: Long,
+        updatedAt: Long,
+    ): WorkoutExerciseSetEntity {
+        return WorkoutExerciseSetEntity(
+            workoutExerciseId = workoutExerciseId,
+            setNumber = setNumber,
+            reps = reps,
+            loadType = loadType,
+            weightValue = weightValue,
+            weightUnit = weightUnit,
+            durationSeconds = durationSeconds,
+            createdAt = createdAt,
+            updatedAt = updatedAt,
+        )
+    }
+
+    private fun createEmptyVariantSet(
+        workoutExerciseId: Long,
+        now: Long,
+    ): WorkoutExerciseSetEntity {
+        return WorkoutExerciseSetEntity(
+            workoutExerciseId = workoutExerciseId,
+            setNumber = 1,
+            reps = 0,
+            loadType = WorkoutExerciseSetLoadType.WEIGHT,
+            weightValue = null,
+            weightUnit = WeightUnit.KG,
+            durationSeconds = null,
+            createdAt = now,
+            updatedAt = now,
+        )
     }
 
     override suspend fun archiveWorkoutExercise(
@@ -572,6 +783,8 @@ class RoomWorkoutRepository @Inject constructor(
             id = id,
             workoutId = workoutId,
             exerciseDefinitionId = exerciseDefinitionId,
+            selectedExerciseDefinitionId = selectedExerciseDefinitionId,
+            originalExerciseName = originalExerciseName,
             exerciseName = exerciseName,
             sortOrder = sortOrder,
             comment = comment,
@@ -868,8 +1081,10 @@ class RoomWorkoutRepository @Inject constructor(
         }
 
         val dayRange = createdAt.toLocalDayRange()
-        val existingProgressPoints = progressDao.getProgressPointsByWorkoutExerciseIdAndDay(
+        val existingProgressPoints = progressDao
+            .getProgressPointsByWorkoutExerciseIdAndExerciseDefinitionIdAndDay(
             workoutExerciseId = workoutExerciseId,
+            exerciseDefinitionId = workoutExercise.selectedExerciseDefinitionId,
             dayStartMillis = dayRange.startMillis,
             dayEndMillis = dayRange.endMillis,
         )
@@ -908,7 +1123,7 @@ class RoomWorkoutRepository @Inject constructor(
             WorkoutExerciseProgressPointEntity(
                 workoutId = workoutExercise.workoutId,
                 workoutExerciseId = workoutExercise.id,
-                exerciseDefinitionId = workoutExercise.exerciseDefinitionId,
+                exerciseDefinitionId = workoutExercise.selectedExerciseDefinitionId,
                 exerciseNameSnapshot = workoutExercise.exerciseName,
                 createdAt = createdAt,
                 revision = revision,
@@ -931,7 +1146,7 @@ class RoomWorkoutRepository @Inject constructor(
         progressDao.updateProgressPointSnapshot(
             progressPointId = progressPointId,
             workoutId = workoutExercise.workoutId,
-            exerciseDefinitionId = workoutExercise.exerciseDefinitionId,
+            exerciseDefinitionId = workoutExercise.selectedExerciseDefinitionId,
             exerciseNameSnapshot = workoutExercise.exerciseName,
             createdAt = createdAt,
             reason = PROGRESS_REASON_PENDING_CHANGES,

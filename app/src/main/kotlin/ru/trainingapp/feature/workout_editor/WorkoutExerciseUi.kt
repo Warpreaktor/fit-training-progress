@@ -1,5 +1,6 @@
 package ru.trainingapp.feature.workout_editor
 
+import ru.trainingapp.core.model.ExerciseDefinitionAlternative
 import ru.trainingapp.core.model.WeightUnit
 import ru.trainingapp.core.model.WorkoutExercise
 import ru.trainingapp.core.model.WorkoutExerciseSet
@@ -9,11 +10,22 @@ data class WorkoutExerciseUi(
     val id: Long,
     val workoutId: Long,
     val exerciseDefinitionId: Long,
+    val selectedExerciseDefinitionId: Long,
+    val originalExerciseName: String,
     val exerciseName: String,
     val sortOrder: Int,
     val comment: String?,
     val isChecked: Boolean,
+    val alternatives: List<WorkoutExerciseAlternativeUi>,
     val sets: List<WorkoutExerciseSetUi>,
+) {
+    val isAlternativeSelected: Boolean
+        get() = selectedExerciseDefinitionId != exerciseDefinitionId
+}
+
+data class WorkoutExerciseAlternativeUi(
+    val id: Long,
+    val name: String,
 )
 
 data class WorkoutExerciseSetUi(
@@ -32,15 +44,24 @@ data class WorkoutExerciseSetDraft(
 
 fun WorkoutExercise.toUi(
     setDrafts: Map<Long, WorkoutExerciseSetDraft>,
+    alternatives: List<ExerciseDefinitionAlternative>,
 ): WorkoutExerciseUi {
     return WorkoutExerciseUi(
         id = id,
         workoutId = workoutId,
         exerciseDefinitionId = exerciseDefinitionId,
+        selectedExerciseDefinitionId = selectedExerciseDefinitionId,
+        originalExerciseName = originalExerciseName,
         exerciseName = exerciseName,
         sortOrder = sortOrder,
         comment = comment,
         isChecked = isChecked,
+        alternatives = alternatives.map { alternative ->
+            WorkoutExerciseAlternativeUi(
+                id = alternative.id,
+                name = alternative.name,
+            )
+        },
         sets = sets.map { set ->
             set.toUi(
                 draft = setDrafts[set.id],

@@ -35,6 +35,7 @@ import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
@@ -357,6 +358,10 @@ private fun WorkoutExerciseCard(
     onRemoveSetClick: (Long) -> Unit,
     onAction: (WorkoutEditorAction) -> Unit,
 ) {
+    var isVariantDialogVisible by rememberSaveable(exercise.id, "variant-dialog") {
+        mutableStateOf(false)
+    }
+
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(
@@ -416,6 +421,24 @@ private fun WorkoutExerciseCard(
                             },
                         )
                     }
+                }
+
+                if (exercise.alternatives.isNotEmpty() || exercise.isAlternativeSelected) {
+                    Text(
+                        text = if (exercise.isAlternativeSelected) {
+                            "↔ Альтернатива • основное: ${exercise.originalExerciseName}"
+                        } else {
+                            "↔ Альтернативы: ${exercise.alternatives.size}"
+                        },
+                        modifier = Modifier
+                            .padding(start = 48.dp)
+                            .clickable {
+                                isVariantDialogVisible = true
+                            }
+                            .padding(vertical = 6.dp),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
                 }
 
                 Row(
@@ -508,6 +531,107 @@ private fun WorkoutExerciseCard(
                     }
                 }
             }
+        }
+    }
+
+    if (isVariantDialogVisible) {
+        ExerciseVariantDialog(
+            exercise = exercise,
+            onDismiss = {
+                isVariantDialogVisible = false
+            },
+            onVariantSelected = { exerciseDefinitionId ->
+                isVariantDialogVisible = false
+                onAction(
+                    WorkoutEditorAction.ExerciseVariantSelected(
+                        workoutExerciseId = exercise.id,
+                        exerciseDefinitionId = exerciseDefinitionId,
+                    )
+                )
+            },
+        )
+    }
+}
+
+@Composable
+private fun ExerciseVariantDialog(
+    exercise: WorkoutExerciseUi,
+    onDismiss: () -> Unit,
+    onVariantSelected: (Long) -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text("Выбрать вариант упражнения")
+        },
+        text = {
+            Column(
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                ExerciseVariantOption(
+                    name = exercise.originalExerciseName,
+                    subtitle = "Основное упражнение",
+                    selected = exercise.selectedExerciseDefinitionId == exercise.exerciseDefinitionId,
+                    onClick = {
+                        onVariantSelected(exercise.exerciseDefinitionId)
+                    },
+                )
+
+                exercise.alternatives.forEach { alternative ->
+                    ExerciseVariantOption(
+                        name = alternative.name,
+                        subtitle = "Альтернатива",
+                        selected = exercise.selectedExerciseDefinitionId == alternative.id,
+                        onClick = {
+                            onVariantSelected(alternative.id)
+                        },
+                    )
+                }
+            }
+        },
+        confirmButton = {},
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Отмена")
+            }
+        },
+    )
+}
+
+@Composable
+private fun ExerciseVariantOption(
+    name: String,
+    subtitle: String,
+    selected: Boolean,
+    onClick: () -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        RadioButton(
+            selected = selected,
+            onClick = null,
+        )
+
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .padding(start = 8.dp),
+        ) {
+            Text(
+                text = name,
+                style = MaterialTheme.typography.bodyLarge,
+            )
+
+            Text(
+                text = subtitle,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
     }
 }

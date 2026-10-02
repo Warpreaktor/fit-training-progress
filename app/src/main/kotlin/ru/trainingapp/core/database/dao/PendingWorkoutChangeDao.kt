@@ -35,6 +35,19 @@ interface PendingWorkoutChangeDao {
         workoutId: Long,
     ): List<PendingWorkoutChangeEntity>
 
+
+    @Query(
+        """
+        SELECT *
+        FROM pending_workout_changes
+        WHERE workoutExerciseId = :workoutExerciseId
+        ORDER BY firstChangedAt ASC
+        """
+    )
+    suspend fun getPendingChangesByWorkoutExerciseId(
+        workoutExerciseId: Long,
+    ): List<PendingWorkoutChangeEntity>
+
     @Query(
         """
         SELECT *

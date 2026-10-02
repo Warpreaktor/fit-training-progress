@@ -18,7 +18,9 @@ interface WorkoutExerciseDao {
             we.id AS id,
             we.workoutId AS workoutId,
             we.exerciseDefinitionId AS exerciseDefinitionId,
-            ed.name AS exerciseName,
+            COALESCE(selection.exerciseDefinitionId, we.exerciseDefinitionId) AS selectedExerciseDefinitionId,
+            original_ed.name AS originalExerciseName,
+            COALESCE(selected_ed.name, original_ed.name) AS exerciseName,
             we.sortOrder AS sortOrder,
             we.comment AS comment,
             we.isChecked AS isChecked,
@@ -28,8 +30,12 @@ interface WorkoutExerciseDao {
             we.createdAt AS createdAt,
             we.updatedAt AS updatedAt
         FROM workout_exercises we
-        INNER JOIN exercise_definitions ed
-            ON ed.id = we.exerciseDefinitionId
+        INNER JOIN exercise_definitions original_ed
+            ON original_ed.id = we.exerciseDefinitionId
+        LEFT JOIN workout_exercise_variant_selections selection
+            ON selection.workoutExerciseId = we.id
+        LEFT JOIN exercise_definitions selected_ed
+            ON selected_ed.id = selection.exerciseDefinitionId
         WHERE we.workoutId = :workoutId
           AND we.isArchived = 0
         ORDER BY we.sortOrder ASC
@@ -132,7 +138,9 @@ interface WorkoutExerciseDao {
         FROM workout_exercises we
         INNER JOIN workout_exercise_sets wes
             ON wes.workoutExerciseId = we.id
-        WHERE we.exerciseDefinitionId = :exerciseDefinitionId
+        LEFT JOIN workout_exercise_variant_selections selection
+            ON selection.workoutExerciseId = we.id
+        WHERE COALESCE(selection.exerciseDefinitionId, we.exerciseDefinitionId) = :exerciseDefinitionId
         ORDER BY wes.updatedAt DESC, wes.id DESC
         LIMIT 1
         """
@@ -147,7 +155,9 @@ interface WorkoutExerciseDao {
         we.id AS id,
         we.workoutId AS workoutId,
         we.exerciseDefinitionId AS exerciseDefinitionId,
-        ed.name AS exerciseName,
+        COALESCE(selection.exerciseDefinitionId, we.exerciseDefinitionId) AS selectedExerciseDefinitionId,
+        original_ed.name AS originalExerciseName,
+        COALESCE(selected_ed.name, original_ed.name) AS exerciseName,
         we.sortOrder AS sortOrder,
         we.comment AS comment,
         we.isChecked AS isChecked,
@@ -157,8 +167,12 @@ interface WorkoutExerciseDao {
         we.createdAt AS createdAt,
         we.updatedAt AS updatedAt
     FROM workout_exercises we
-    INNER JOIN exercise_definitions ed
-        ON ed.id = we.exerciseDefinitionId
+    INNER JOIN exercise_definitions original_ed
+        ON original_ed.id = we.exerciseDefinitionId
+    LEFT JOIN workout_exercise_variant_selections selection
+        ON selection.workoutExerciseId = we.id
+    LEFT JOIN exercise_definitions selected_ed
+        ON selected_ed.id = selection.exerciseDefinitionId
     WHERE we.id = :id
     LIMIT 1
     """
