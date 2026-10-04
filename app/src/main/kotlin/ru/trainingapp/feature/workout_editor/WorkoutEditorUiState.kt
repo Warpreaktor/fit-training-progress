@@ -11,5 +11,9 @@ data class WorkoutEditorUiState(
     val availableExercises: List<ExerciseDefinition> = emptyList(),
     val addExerciseSearchQuery: String = "",
     val isAddExerciseDialogVisible: Boolean = false,
+    val targetDurationMinutes: Int? = null,
+    val timerStartedAt: Long? = null,
+    val timerElapsedMillis: Long = 0L,
+    val timerIsFinished: Boolean = false,
     val errorMessage: String? = null,
 )

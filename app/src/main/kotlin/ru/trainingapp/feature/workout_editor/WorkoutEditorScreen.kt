@@ -1,6 +1,7 @@
 package ru.trainingapp.feature.workout_editor
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -14,6 +15,8 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.lazy.stickyHeader
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
@@ -46,6 +49,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -229,7 +233,7 @@ private fun WorkoutEditorScreen(
 
                 else -> {
                     WorkoutExerciseList(
-                        exercises = uiState.exercises,
+                        uiState = uiState,
                         onOpenExerciseProgress = onOpenExerciseProgress,
                         onAction = onAction,
                     )
@@ -263,13 +267,32 @@ private fun WorkoutEditorScreen(
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun WorkoutExerciseList(
-    exercises: List<WorkoutExerciseUi>,
+    uiState: WorkoutEditorUiState,
     onOpenExerciseProgress: (Long) -> Unit,
     onAction: (WorkoutEditorAction) -> Unit,
 ) {
+    val exercises = uiState.exercises
+    val listState = rememberLazyListState()
+    val showCompactHeader by remember {
+        derivedStateOf {
+            listState.firstVisibleItemIndex > 0
+        }
+    }
+    val elapsedMillis = rememberWorkoutElapsedMillis(
+        timerStartedAt = uiState.timerStartedAt,
+        timerElapsedMillis = uiState.timerElapsedMillis,
+    )
+    val isTimerRunning = uiState.timerStartedAt != null
+
+    var isTargetDurationDialogVisible by rememberSaveable {
+        mutableStateOf(false)
+    }
+
     LazyColumn(
+        state = listState,
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(
             start = 16.dp,
@@ -279,6 +302,45 @@ private fun WorkoutExerciseList(
         ),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
+        item(key = "workout-progress-header") {
+            WorkoutProgressHeader(
+                completedExercises = exercises.count { exercise -> exercise.isChecked },
+                totalExercises = exercises.size,
+                targetDurationMinutes = uiState.targetDurationMinutes,
+                elapsedMillis = elapsedMillis,
+                isTimerRunning = isTimerRunning,
+                isTimerFinished = uiState.timerIsFinished,
+                onTargetDurationClick = {
+                    isTargetDurationDialogVisible = true
+                },
+                onStartClick = {
+                    onAction(WorkoutEditorAction.StartWorkoutClick)
+                },
+                onPauseClick = {
+                    onAction(WorkoutEditorAction.PauseWorkoutClick)
+                },
+                onFinishClick = {
+                    onAction(WorkoutEditorAction.FinishWorkoutClick)
+                },
+            )
+        }
+
+        stickyHeader(key = "workout-progress-sticky-header") {
+            if (showCompactHeader) {
+                CompactWorkoutProgressHeader(
+                    completedExercises = exercises.count { exercise -> exercise.isChecked },
+                    totalExercises = exercises.size,
+                    elapsedMillis = elapsedMillis,
+                    targetDurationMinutes = uiState.targetDurationMinutes,
+                    isTimerRunning = isTimerRunning,
+                    isTimerFinished = uiState.timerIsFinished,
+                    onStartClick = {
+                        onAction(WorkoutEditorAction.StartWorkoutClick)
+                    },
+                )
+            }
+        }
+
         items(
             items = exercises,
             key = { exercise -> exercise.id },
@@ -340,6 +402,23 @@ private fun WorkoutExerciseList(
                 onAction = onAction,
             )
         }
+    }
+
+    if (isTargetDurationDialogVisible) {
+        TargetDurationDialog(
+            currentMinutes = uiState.targetDurationMinutes,
+            onDismiss = {
+                isTargetDurationDialogVisible = false
+            },
+            onSave = { minutes ->
+                isTargetDurationDialogVisible = false
+                onAction(
+                    WorkoutEditorAction.TargetDurationChanged(
+                        minutes = minutes,
+                    )
+                )
+            },
+        )
     }
 }
 

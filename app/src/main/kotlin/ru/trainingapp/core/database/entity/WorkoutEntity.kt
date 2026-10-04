@@ -1,5 +1,6 @@
 package ru.trainingapp.core.database.entity
 
+import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.PrimaryKey
 
@@ -13,6 +14,12 @@ data class WorkoutEntity(
     val isLocked: Boolean = false,
     val isArchived: Boolean = false,
     val archivedAt: Long? = null,
+    val targetDurationMinutes: Int? = null,
+    val timerStartedAt: Long? = null,
+    @ColumnInfo(defaultValue = "0")
+    val timerElapsedMillis: Long = 0L,
+    @ColumnInfo(defaultValue = "0")
+    val timerIsFinished: Boolean = false,
     val createdAt: Long,
     val updatedAt: Long
 )

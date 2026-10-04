@@ -134,6 +134,9 @@ class RoomWorkoutRepository @Inject constructor(
                     isLocked = false,
                     isArchived = false,
                     archivedAt = null,
+                    timerStartedAt = null,
+                    timerElapsedMillis = 0L,
+                    timerIsFinished = false,
                     createdAt = now,
                     updatedAt = now,
                 )
@@ -169,6 +172,9 @@ class RoomWorkoutRepository @Inject constructor(
                     isLocked = false,
                     isArchived = false,
                     archivedAt = null,
+                    timerStartedAt = null,
+                    timerElapsedMillis = 0L,
+                    timerIsFinished = false,
                     createdAt = now,
                     updatedAt = now,
                 )
@@ -253,6 +259,76 @@ class RoomWorkoutRepository @Inject constructor(
                 name = name.trim(),
                 description = description.trim(),
                 updatedAt = System.currentTimeMillis(),
+            )
+        )
+    }
+
+    override suspend fun setWorkoutTargetDuration(
+        workoutId: Long,
+        targetDurationMinutes: Int?,
+    ) {
+        val workout = workoutDao.getWorkoutById(workoutId) ?: return
+
+        workoutDao.updateWorkout(
+            workout.copy(
+                targetDurationMinutes = targetDurationMinutes,
+                updatedAt = System.currentTimeMillis(),
+            )
+        )
+    }
+
+    override suspend fun startWorkoutTimer(
+        workoutId: Long,
+    ) {
+        val workout = workoutDao.getWorkoutById(workoutId) ?: return
+        if (workout.timerStartedAt != null) return
+
+        val now = System.currentTimeMillis()
+        val isRestart = workout.timerIsFinished
+
+        workoutDao.updateWorkout(
+            workout.copy(
+                timerStartedAt = now,
+                timerElapsedMillis = if (isRestart) 0L else workout.timerElapsedMillis,
+                timerIsFinished = false,
+                updatedAt = now,
+            )
+        )
+    }
+
+    override suspend fun pauseWorkoutTimer(
+        workoutId: Long,
+    ) {
+        val workout = workoutDao.getWorkoutById(workoutId) ?: return
+        val startedAt = workout.timerStartedAt ?: return
+        val now = System.currentTimeMillis()
+
+        workoutDao.updateWorkout(
+            workout.copy(
+                timerStartedAt = null,
+                timerElapsedMillis = workout.timerElapsedMillis +
+                    (now - startedAt).coerceAtLeast(0L),
+                updatedAt = now,
+            )
+        )
+    }
+
+    override suspend fun finishWorkoutTimer(
+        workoutId: Long,
+    ) {
+        val workout = workoutDao.getWorkoutById(workoutId) ?: return
+        val now = System.currentTimeMillis()
+        val elapsedMillis = workout.timerElapsedMillis +
+            (workout.timerStartedAt?.let { startedAt ->
+                (now - startedAt).coerceAtLeast(0L)
+            } ?: 0L)
+
+        workoutDao.updateWorkout(
+            workout.copy(
+                timerStartedAt = null,
+                timerElapsedMillis = elapsedMillis,
+                timerIsFinished = true,
+                updatedAt = now,
             )
         )
     }
@@ -773,6 +849,10 @@ class RoomWorkoutRepository @Inject constructor(
             isLocked = isLocked,
             checkedExercisesCount = exercises.count { it.isChecked },
             exercisesCount = exercises.size,
+            targetDurationMinutes = targetDurationMinutes,
+            timerStartedAt = timerStartedAt,
+            timerElapsedMillis = timerElapsedMillis,
+            timerIsFinished = timerIsFinished,
         )
     }
 

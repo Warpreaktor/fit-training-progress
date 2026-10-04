@@ -24,6 +24,7 @@ import ru.trainingapp.core.domain.workout.ResetWorkoutCheckmarksUseCase
 import ru.trainingapp.core.domain.workout.SelectWorkoutExerciseVariantUseCase
 import ru.trainingapp.core.domain.workout.ToggleWorkoutExerciseCheckedUseCase
 import ru.trainingapp.core.domain.workout.UpdateWorkoutExerciseSetUseCase
+import ru.trainingapp.core.domain.workout.WorkoutTimerUseCase
 import ru.trainingapp.core.model.ExerciseDefinition
 import ru.trainingapp.core.model.WeightUnit
 import ru.trainingapp.navigation.AppRoute
@@ -43,6 +44,7 @@ class WorkoutEditorViewModel @Inject constructor(
     private val resetWorkoutCheckmarksUseCase: ResetWorkoutCheckmarksUseCase,
     private val selectWorkoutExerciseVariantUseCase: SelectWorkoutExerciseVariantUseCase,
     private val commitPendingProgressUseCase: CommitPendingProgressUseCase,
+    private val workoutTimerUseCase: WorkoutTimerUseCase,
 ) : ViewModel() {
 
     private val workoutId: Long = requireNotNull(
@@ -107,6 +109,10 @@ class WorkoutEditorViewModel @Inject constructor(
             availableExercises = exercisePickerState.exercises,
             addExerciseSearchQuery = exercisePickerState.query,
             isAddExerciseDialogVisible = isDialogVisible,
+            targetDurationMinutes = editorData?.workout?.targetDurationMinutes,
+            timerStartedAt = editorData?.workout?.timerStartedAt,
+            timerElapsedMillis = editorData?.workout?.timerElapsedMillis ?: 0L,
+            timerIsFinished = editorData?.workout?.timerIsFinished ?: false,
             errorMessage = error,
         )
     }.stateIn(
@@ -214,6 +220,22 @@ class WorkoutEditorViewModel @Inject constructor(
             WorkoutEditorAction.ResetCheckmarksClick -> {
                 resetWorkoutCheckmarks()
             }
+
+            is WorkoutEditorAction.TargetDurationChanged -> {
+                setTargetDuration(action.minutes)
+            }
+
+            WorkoutEditorAction.StartWorkoutClick -> {
+                startWorkoutTimer()
+            }
+
+            WorkoutEditorAction.PauseWorkoutClick -> {
+                pauseWorkoutTimer()
+            }
+
+            WorkoutEditorAction.FinishWorkoutClick -> {
+                finishWorkoutTimer()
+            }
         }
     }
 
@@ -240,6 +262,33 @@ class WorkoutEditorViewModel @Inject constructor(
     private fun resetWorkoutCheckmarks() {
         launchOperation {
             resetWorkoutCheckmarksUseCase(workoutId)
+        }
+    }
+
+    private fun setTargetDuration(minutes: Int?) {
+        launchOperation {
+            workoutTimerUseCase.setTargetDuration(
+                workoutId = workoutId,
+                targetDurationMinutes = minutes,
+            )
+        }
+    }
+
+    private fun startWorkoutTimer() {
+        launchOperation {
+            workoutTimerUseCase.start(workoutId)
+        }
+    }
+
+    private fun pauseWorkoutTimer() {
+        launchOperation {
+            workoutTimerUseCase.pause(workoutId)
+        }
+    }
+
+    private fun finishWorkoutTimer() {
+        launchOperation {
+            workoutTimerUseCase.finish(workoutId)
         }
     }
 

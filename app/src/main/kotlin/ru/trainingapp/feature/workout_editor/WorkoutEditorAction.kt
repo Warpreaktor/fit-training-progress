@@ -64,4 +64,14 @@ sealed interface WorkoutEditorAction {
     ) : WorkoutEditorAction
 
     data object ResetCheckmarksClick : WorkoutEditorAction
+
+    data class TargetDurationChanged(
+        val minutes: Int?,
+    ) : WorkoutEditorAction
+
+    data object StartWorkoutClick : WorkoutEditorAction
+
+    data object PauseWorkoutClick : WorkoutEditorAction
+
+    data object FinishWorkoutClick : WorkoutEditorAction
 }

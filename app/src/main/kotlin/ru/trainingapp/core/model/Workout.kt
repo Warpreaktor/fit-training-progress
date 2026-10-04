@@ -8,6 +8,10 @@ data class Workout(
     val checkedExercisesCount: Int,
     val exercisesCount: Int,
     val tags: List<Tag> = emptyList(),
+    val targetDurationMinutes: Int? = null,
+    val timerStartedAt: Long? = null,
+    val timerElapsedMillis: Long = 0L,
+    val timerIsFinished: Boolean = false,
 )
 
 data class ExerciseDefinition(

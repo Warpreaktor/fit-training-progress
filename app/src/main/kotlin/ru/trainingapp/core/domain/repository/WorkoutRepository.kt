@@ -34,6 +34,23 @@ interface WorkoutRepository {
         description: String,
     )
 
+    suspend fun setWorkoutTargetDuration(
+        workoutId: Long,
+        targetDurationMinutes: Int?,
+    )
+
+    suspend fun startWorkoutTimer(
+        workoutId: Long,
+    )
+
+    suspend fun pauseWorkoutTimer(
+        workoutId: Long,
+    )
+
+    suspend fun finishWorkoutTimer(
+        workoutId: Long,
+    )
+
     suspend fun moveWorkoutUp(
         workoutId: Long,
     )
