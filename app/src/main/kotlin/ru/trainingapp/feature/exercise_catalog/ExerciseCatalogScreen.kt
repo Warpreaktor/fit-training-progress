@@ -93,6 +93,9 @@ fun ExerciseCatalogRoute(
         onBack = onBack,
         onAddExerciseClick = viewModel::onAddExerciseClick,
         onEditExerciseClick = viewModel::onEditExerciseClick,
+        onEditExerciseWorkoutsClick = { exerciseDefinitionId ->
+            viewModel.onEditExerciseWorkoutsClick(exerciseDefinitionId)
+        },
         onArchiveExerciseClick = viewModel::onArchiveExerciseClick,
         onEditorNameChange = viewModel::onEditorNameChange,
         onEditorDescriptionChange = viewModel::onEditorDescriptionChange,
@@ -136,6 +139,8 @@ fun ExerciseCatalogRoute(
             )
         },
         onTransferMessageShown = viewModel::onTransferMessageShown,
+        onDismissWorkoutMembership = viewModel::onDismissWorkoutMembership,
+        onWorkoutMembershipChange = viewModel::onWorkoutMembershipChange,
     )
 }
 
@@ -146,6 +151,7 @@ fun ExerciseCatalogScreen(
     onBack: () -> Unit,
     onAddExerciseClick: () -> Unit,
     onEditExerciseClick: (ExerciseDefinition) -> Unit,
+    onEditExerciseWorkoutsClick: (Long) -> Unit,
     onArchiveExerciseClick: (Long) -> Unit,
     onEditorNameChange: (String) -> Unit,
     onEditorDescriptionChange: (String) -> Unit,
@@ -171,6 +177,8 @@ fun ExerciseCatalogScreen(
     onExportExerciseClick: (ExerciseDefinition) -> Unit,
     onImportExerciseClick: () -> Unit,
     onTransferMessageShown: () -> Unit,
+    onDismissWorkoutMembership: () -> Unit,
+    onWorkoutMembershipChange: (Long, Boolean) -> Unit,
 ) {
     val snackbarHostState = remember { SnackbarHostState() }
 
@@ -270,6 +278,7 @@ fun ExerciseCatalogScreen(
                         ExerciseCatalogItem(
                             exercise = exercise,
                             onEditClick = { onEditExerciseClick(exercise) },
+                            onWorkoutsClick = { onEditExerciseWorkoutsClick(exercise.id) },
                             onEditTagsClick = { onEditExerciseTagsClick(exercise) },
                             onEditAlternativesClick = { onEditExerciseAlternativesClick(exercise) },
                             onArchiveClick = { onArchiveExerciseClick(exercise.id) },
@@ -335,6 +344,9 @@ fun ExerciseCatalogScreen(
             editor = uiState.editor,
             onNameChange = onEditorNameChange,
             onDescriptionChange = onEditorDescriptionChange,
+            onWorkoutsClick = {
+                uiState.editor.exerciseId?.let(onEditExerciseWorkoutsClick)
+            },
             onDismiss = onDismissEditor,
             onSave = onSaveExerciseClick,
         )
@@ -360,12 +372,21 @@ fun ExerciseCatalogScreen(
             onSave = onSaveExerciseAlternativesClick,
         )
     }
+
+    if (uiState.workoutMembership.isVisible) {
+        ExerciseWorkoutMembershipDialog(
+            state = uiState.workoutMembership,
+            onToggleWorkout = onWorkoutMembershipChange,
+            onDismiss = onDismissWorkoutMembership,
+        )
+    }
 }
 
 @Composable
 private fun ExerciseCatalogItem(
     exercise: ExerciseDefinition,
     onEditClick: () -> Unit,
+    onWorkoutsClick: () -> Unit,
     onEditTagsClick: () -> Unit,
     onEditAlternativesClick: () -> Unit,
     onArchiveClick: () -> Unit,
@@ -488,6 +509,13 @@ private fun ExerciseCatalogItem(
                     }",
                     style = MaterialTheme.typography.bodySmall,
                 )
+            }
+
+            TextButton(
+                onClick = onWorkoutsClick,
+                modifier = Modifier.align(Alignment.End),
+            ) {
+                Text("Тренировки")
             }
         }
     }
@@ -639,6 +667,7 @@ private fun ExerciseEditorDialog(
     editor: ExerciseEditorState,
     onNameChange: (String) -> Unit,
     onDescriptionChange: (String) -> Unit,
+    onWorkoutsClick: () -> Unit,
     onDismiss: () -> Unit,
     onSave: () -> Unit,
 ) {
@@ -676,6 +705,15 @@ private fun ExerciseEditorDialog(
                     label = { Text("Описание") },
                     minLines = 3,
                 )
+
+                if (editor.isEditing) {
+                    TextButton(
+                        onClick = onWorkoutsClick,
+                        modifier = Modifier.align(Alignment.End),
+                    ) {
+                        Text("Тренировки")
+                    }
+                }
             }
         },
         confirmButton = {
@@ -766,6 +804,60 @@ private fun ExerciseAlternativesDialog(
                 Text("Отмена")
             }
         },
+    )
+}
+
+@Composable
+private fun ExerciseWorkoutMembershipDialog(
+    state: ExerciseWorkoutMembershipState,
+    onToggleWorkout: (Long, Boolean) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text("Тренировки")
+        },
+        text = {
+            if (state.workouts.isEmpty()) {
+                Text(
+                    text = "Пока нет тренировок",
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+            } else {
+                LazyColumn(
+                    modifier = Modifier.heightIn(max = 360.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                ) {
+                    items(
+                        items = state.workouts,
+                        key = { workout -> workout.id },
+                    ) { workout ->
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            val isSelected = workout.id in state.selectedWorkoutIds
+
+                            Checkbox(
+                                checked = isSelected,
+                                enabled = workout.id !in state.pendingWorkoutIds,
+                                onCheckedChange = { checked ->
+                                    onToggleWorkout(workout.id, checked)
+                                },
+                            )
+
+                            Text(
+                                text = workout.name,
+                                modifier = Modifier.weight(1f),
+                                style = MaterialTheme.typography.bodyMedium,
+                            )
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {},
     )
 }
 

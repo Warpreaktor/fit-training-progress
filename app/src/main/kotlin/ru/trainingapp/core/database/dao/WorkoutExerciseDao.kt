@@ -111,6 +111,35 @@ interface WorkoutExerciseDao {
 
     @Query(
         """
+        SELECT DISTINCT workoutId
+        FROM workout_exercises
+        WHERE exerciseDefinitionId = :exerciseDefinitionId
+          AND isArchived = 0
+        """
+    )
+    fun observeActiveWorkoutIdsByExerciseDefinitionId(
+        exerciseDefinitionId: Long,
+    ): Flow<List<Long>>
+
+    @Query(
+        """
+        UPDATE workout_exercises
+        SET isArchived = 1,
+            archivedAt = :archivedAt,
+            updatedAt = :archivedAt
+        WHERE workoutId = :workoutId
+          AND exerciseDefinitionId = :exerciseDefinitionId
+          AND isArchived = 0
+        """
+    )
+    suspend fun archiveWorkoutExercisesByDefinition(
+        workoutId: Long,
+        exerciseDefinitionId: Long,
+        archivedAt: Long,
+    ): Int
+
+    @Query(
+        """
         SELECT COALESCE(MAX(sortOrder), -1) + 1
         FROM workout_exercises
         WHERE workoutId = :workoutId

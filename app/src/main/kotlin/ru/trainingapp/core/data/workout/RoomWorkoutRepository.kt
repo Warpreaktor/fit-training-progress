@@ -411,6 +411,14 @@ class RoomWorkoutRepository @Inject constructor(
         }
     }
 
+    override fun observeWorkoutIdsContainingExercise(
+        exerciseDefinitionId: Long,
+    ): Flow<Set<Long>> {
+        return workoutExerciseDao
+            .observeActiveWorkoutIdsByExerciseDefinitionId(exerciseDefinitionId)
+            .map { workoutIds -> workoutIds.toSet() }
+    }
+
     override suspend fun addExerciseToWorkout(
         workoutId: Long,
         exerciseDefinitionId: Long,
@@ -664,6 +672,28 @@ class RoomWorkoutRepository @Inject constructor(
             createdAt = now,
             updatedAt = now,
         )
+    }
+
+    override suspend fun removeExerciseFromWorkout(
+        workoutId: Long,
+        exerciseDefinitionId: Long,
+    ) {
+        val now = System.currentTimeMillis()
+
+        database.withTransaction {
+            val archivedCount = workoutExerciseDao.archiveWorkoutExercisesByDefinition(
+                workoutId = workoutId,
+                exerciseDefinitionId = exerciseDefinitionId,
+                archivedAt = now,
+            )
+
+            if (archivedCount > 0) {
+                workoutDao.touchWorkout(
+                    id = workoutId,
+                    updatedAt = now,
+                )
+            }
+        }
     }
 
     override suspend fun archiveWorkoutExercise(

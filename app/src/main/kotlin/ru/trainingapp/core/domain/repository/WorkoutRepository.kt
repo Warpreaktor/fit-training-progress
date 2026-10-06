@@ -69,6 +69,15 @@ interface WorkoutRepository {
         exerciseDefinitionId: Long,
     ): Long
 
+    fun observeWorkoutIdsContainingExercise(
+        exerciseDefinitionId: Long,
+    ): Flow<Set<Long>>
+
+    suspend fun removeExerciseFromWorkout(
+        workoutId: Long,
+        exerciseDefinitionId: Long,
+    )
+
     suspend fun selectWorkoutExerciseVariant(
         workoutExerciseId: Long,
         exerciseDefinitionId: Long,

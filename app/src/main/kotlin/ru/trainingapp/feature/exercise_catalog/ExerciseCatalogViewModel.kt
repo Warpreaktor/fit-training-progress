@@ -3,10 +3,15 @@ package ru.trainingapp.feature.exercise_catalog
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import ru.trainingapp.core.domain.exercise.AddExerciseImagesUseCase
@@ -21,16 +26,24 @@ import ru.trainingapp.core.domain.exercise.UpdateExerciseDefinitionUseCase
 import ru.trainingapp.core.domain.exportimport.ExportExerciseUseCase
 import ru.trainingapp.core.domain.exportimport.ImportTrainingPackUseCase
 import ru.trainingapp.core.domain.repository.TrainingPackExportType
+import ru.trainingapp.core.domain.workout.AddExerciseToWorkoutUseCase
+import ru.trainingapp.core.domain.workout.ObserveExerciseWorkoutMembershipUseCase
+import ru.trainingapp.core.domain.workout.ObserveWorkoutUseCase
+import ru.trainingapp.core.domain.workout.RemoveExerciseFromWorkoutUseCase
 import ru.trainingapp.core.domain.tag.CreateTagUseCase
 import ru.trainingapp.core.domain.tag.ObserveTagsUseCase
 import ru.trainingapp.core.model.ExerciseDefinition
 import ru.trainingapp.core.model.Tag
+import ru.trainingapp.core.model.Workout
 import javax.inject.Inject
 
+@OptIn(ExperimentalCoroutinesApi::class)
 @HiltViewModel
 class ExerciseCatalogViewModel @Inject constructor(
     observeExerciseDefinitionsUseCase: ObserveExerciseDefinitionsUseCase,
     observeTagsUseCase: ObserveTagsUseCase,
+    observeWorkoutUseCase: ObserveWorkoutUseCase,
+    observeExerciseWorkoutMembershipUseCase: ObserveExerciseWorkoutMembershipUseCase,
     private val createExerciseDefinitionUseCase: CreateExerciseDefinitionUseCase,
     private val updateExerciseDefinitionUseCase: UpdateExerciseDefinitionUseCase,
     private val archiveExerciseDefinitionUseCase: ArchiveExerciseDefinitionUseCase,
@@ -42,6 +55,8 @@ class ExerciseCatalogViewModel @Inject constructor(
     private val deleteExerciseImageUseCase: DeleteExerciseImageUseCase,
     private val exportExerciseUseCase: ExportExerciseUseCase,
     private val importTrainingPackUseCase: ImportTrainingPackUseCase,
+    private val addExerciseToWorkoutUseCase: AddExerciseToWorkoutUseCase,
+    private val removeExerciseFromWorkoutUseCase: RemoveExerciseFromWorkoutUseCase,
 ) : ViewModel() {
 
     private val editorState = MutableStateFlow(ExerciseEditorState())
@@ -61,6 +76,30 @@ class ExerciseCatalogViewModel @Inject constructor(
     private val transferState = MutableStateFlow(ExerciseTransferState())
 
     private var pendingExportExerciseDefinitionId: Long? = null
+
+    private val workoutMembershipState = MutableStateFlow(ExerciseWorkoutMembershipState())
+
+    private val selectedWorkoutIds = workoutMembershipState
+        .map { state -> state.exerciseDefinitionId }
+        .distinctUntilChanged()
+        .flatMapLatest { exerciseDefinitionId ->
+            if (exerciseDefinitionId == null) {
+                flowOf(emptySet<Long>())
+            } else {
+                observeExerciseWorkoutMembershipUseCase(exerciseDefinitionId)
+            }
+        }
+
+    private val workoutMembershipUiState = combine(
+        observeWorkoutUseCase(),
+        workoutMembershipState,
+        selectedWorkoutIds,
+    ) { workouts, state, workoutIds ->
+        state.copy(
+            workouts = workouts,
+            selectedWorkoutIds = workoutIds,
+        )
+    }
 
     val uiState: StateFlow<ExerciseCatalogUiState> =
         combine(
@@ -82,7 +121,8 @@ class ExerciseCatalogViewModel @Inject constructor(
             selectedFilterTagIds,
             imageViewerState,
             transferState,
-        ) { combinedState, filterTagIds, imageViewer, transfer ->
+            workoutMembershipUiState,
+        ) { combinedState, filterTagIds, imageViewer, transfer, workoutMembership ->
 
             val filteredExercises = if (filterTagIds.isEmpty()) {
                 combinedState.exercises
@@ -102,6 +142,7 @@ class ExerciseCatalogViewModel @Inject constructor(
                 alternativeEditor = combinedState.alternativeEditor,
                 imageViewer = imageViewer,
                 transfer = transfer,
+                workoutMembership = workoutMembership,
             )
         }.stateIn(
             scope = viewModelScope,
@@ -125,6 +166,58 @@ class ExerciseCatalogViewModel @Inject constructor(
             name = exercise.name,
             description = exercise.description,
         )
+    }
+
+    fun onEditExerciseWorkoutsClick(exerciseDefinitionId: Long) {
+        if (exerciseDefinitionId <= 0L) {
+            return
+        }
+
+        workoutMembershipState.value = ExerciseWorkoutMembershipState(
+            isVisible = true,
+            exerciseDefinitionId = exerciseDefinitionId,
+        )
+    }
+
+    fun onDismissWorkoutMembership() {
+        workoutMembershipState.value = ExerciseWorkoutMembershipState()
+    }
+
+    fun onWorkoutMembershipChange(
+        workoutId: Long,
+        isSelected: Boolean,
+    ) {
+        val currentState = workoutMembershipState.value
+        val exerciseDefinitionId = currentState.exerciseDefinitionId ?: return
+
+        if (workoutId in currentState.pendingWorkoutIds) {
+            return
+        }
+
+        workoutMembershipState.value = currentState.copy(
+            pendingWorkoutIds = currentState.pendingWorkoutIds + workoutId,
+        )
+
+        viewModelScope.launch {
+            try {
+                if (isSelected) {
+                    addExerciseToWorkoutUseCase(
+                        workoutId = workoutId,
+                        exerciseDefinitionId = exerciseDefinitionId,
+                    )
+                } else {
+                    removeExerciseFromWorkoutUseCase(
+                        workoutId = workoutId,
+                        exerciseDefinitionId = exerciseDefinitionId,
+                    )
+                }
+            } finally {
+                val latestState = workoutMembershipState.value
+                workoutMembershipState.value = latestState.copy(
+                    pendingWorkoutIds = latestState.pendingWorkoutIds - workoutId,
+                )
+            }
+        }
     }
 
     fun onEditorNameChange(value: String) {
@@ -470,6 +563,7 @@ data class ExerciseCatalogUiState(
     val alternativeEditor: ExerciseAlternativeEditorState = ExerciseAlternativeEditorState(),
     val imageViewer: ExerciseImageViewerState = ExerciseImageViewerState(),
     val transfer: ExerciseTransferState = ExerciseTransferState(),
+    val workoutMembership: ExerciseWorkoutMembershipState = ExerciseWorkoutMembershipState(),
 )
 
 data class ExerciseEditorState(
@@ -498,6 +592,14 @@ data class ExerciseAlternativeEditorState(
     val exerciseDefinitionId: Long = 0L,
     val exerciseName: String = "",
     val selectedAlternativeExerciseDefinitionIds: Set<Long> = emptySet(),
+)
+
+data class ExerciseWorkoutMembershipState(
+    val isVisible: Boolean = false,
+    val exerciseDefinitionId: Long? = null,
+    val workouts: List<Workout> = emptyList(),
+    val selectedWorkoutIds: Set<Long> = emptySet(),
+    val pendingWorkoutIds: Set<Long> = emptySet(),
 )
 
 data class ExerciseImageViewerState(
