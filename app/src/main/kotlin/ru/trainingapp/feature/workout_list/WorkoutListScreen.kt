@@ -29,7 +29,6 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
@@ -161,6 +160,7 @@ fun WorkoutListScreen(
     onTransferMessageShown: () -> Unit,
 ) {
     val snackbarHostState = remember { SnackbarHostState() }
+    var isScreenMenuExpanded by remember { mutableStateOf(false) }
 
     LaunchedEffect(uiState.transfer.message) {
         val message = uiState.transfer.message ?: return@LaunchedEffect
@@ -171,20 +171,41 @@ fun WorkoutListScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(title = { Text("Тренировки") })
-        },
-        snackbarHost = { SnackbarHost(snackbarHostState) },
-        floatingActionButton = {
-            ExtendedFloatingActionButton(
-                onClick = {
-                    if (!uiState.transfer.isInProgress) {
-                        onCreateWorkoutClick()
+            TopAppBar(
+                title = { Text("Тренировки") },
+                actions = {
+                    IconButton(
+                        onClick = {
+                            isScreenMenuExpanded = true
+                        },
+                    ) {
+                        Icon(
+                            imageVector = Icons.Outlined.MoreVert,
+                            contentDescription = "Действия со списком тренировок",
+                        )
+                    }
+
+                    DropdownMenu(
+                        expanded = isScreenMenuExpanded,
+                        onDismissRequest = {
+                            isScreenMenuExpanded = false
+                        },
+                    ) {
+                        DropdownMenuItem(
+                            text = {
+                                Text("Создать тренировку")
+                            },
+                            enabled = !uiState.transfer.isInProgress,
+                            onClick = {
+                                isScreenMenuExpanded = false
+                                onCreateWorkoutClick()
+                            },
+                        )
                     }
                 },
-            ) {
-                Text("Создать")
-            }
+            )
         },
+        snackbarHost = { SnackbarHost(snackbarHostState) },
     ) { padding ->
         Column(
             modifier = Modifier
