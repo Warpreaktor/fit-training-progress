@@ -18,6 +18,8 @@ data class WorkoutExerciseUi(
     val isChecked: Boolean,
     val alternatives: List<WorkoutExerciseAlternativeUi>,
     val sets: List<WorkoutExerciseSetUi>,
+    val sectionId: String? = null,
+    val sectionName: String? = null,
 ) {
     val isAlternativeSelected: Boolean
         get() = selectedExerciseDefinitionId != exerciseDefinitionId
@@ -54,6 +56,8 @@ fun WorkoutExercise.toUi(
         originalExerciseName = originalExerciseName,
         exerciseName = exerciseName,
         sortOrder = sortOrder,
+        sectionId = sectionId,
+        sectionName = sectionName,
         comment = comment,
         isChecked = isChecked,
         alternatives = alternatives.map { alternative ->

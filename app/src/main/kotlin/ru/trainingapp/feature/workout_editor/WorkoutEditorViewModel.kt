@@ -24,6 +24,7 @@ import ru.trainingapp.core.domain.workout.ResetWorkoutCheckmarksUseCase
 import ru.trainingapp.core.domain.workout.SelectWorkoutExerciseVariantUseCase
 import ru.trainingapp.core.domain.workout.ToggleWorkoutExerciseCheckedUseCase
 import ru.trainingapp.core.domain.workout.UpdateWorkoutExerciseSetUseCase
+import ru.trainingapp.core.domain.workout.WorkoutSectionUseCase
 import ru.trainingapp.core.domain.workout.WorkoutTimerUseCase
 import ru.trainingapp.core.model.ExerciseDefinition
 import ru.trainingapp.core.model.WeightUnit
@@ -45,6 +46,7 @@ class WorkoutEditorViewModel @Inject constructor(
     private val selectWorkoutExerciseVariantUseCase: SelectWorkoutExerciseVariantUseCase,
     private val commitPendingProgressUseCase: CommitPendingProgressUseCase,
     private val workoutTimerUseCase: WorkoutTimerUseCase,
+    private val workoutSectionUseCase: WorkoutSectionUseCase,
 ) : ViewModel() {
 
     private val workoutId: Long = requireNotNull(
@@ -162,6 +164,34 @@ class WorkoutEditorViewModel @Inject constructor(
             is WorkoutEditorAction.ArchiveExerciseClick -> {
                 archiveWorkoutExercise(
                     workoutExerciseId = action.workoutExerciseId,
+                )
+            }
+
+            is WorkoutEditorAction.CreateSection -> {
+                createSection(
+                    workoutExerciseIds = action.workoutExerciseIds,
+                    name = action.name,
+                )
+            }
+
+            is WorkoutEditorAction.RenameSection -> {
+                renameSection(
+                    sectionId = action.sectionId,
+                    name = action.name,
+                )
+            }
+
+            is WorkoutEditorAction.RemoveSection -> {
+                removeSection(
+                    sectionId = action.sectionId,
+                )
+            }
+
+            is WorkoutEditorAction.MoveExerciseToSection -> {
+                moveExerciseToSection(
+                    workoutExerciseId = action.workoutExerciseId,
+                    sectionId = action.sectionId,
+                    sectionName = action.sectionName,
                 )
             }
 
@@ -333,6 +363,58 @@ class WorkoutEditorViewModel @Inject constructor(
     ) {
         launchOperation {
             archiveWorkoutExerciseUseCase(workoutExerciseId)
+        }
+    }
+
+    private fun createSection(
+        workoutExerciseIds: Set<Long>,
+        name: String,
+    ) {
+        launchOperation {
+            workoutSectionUseCase.create(
+                workoutId = workoutId,
+                workoutExerciseIds = workoutExerciseIds,
+                name = name,
+            )
+        }
+    }
+
+    private fun renameSection(
+        sectionId: String,
+        name: String,
+    ) {
+        launchOperation {
+            workoutSectionUseCase.rename(
+                workoutId = workoutId,
+                sectionId = sectionId,
+                name = name,
+            )
+        }
+    }
+
+    private fun removeSection(
+        sectionId: String,
+    ) {
+        launchOperation {
+            workoutSectionUseCase.remove(
+                workoutId = workoutId,
+                sectionId = sectionId,
+            )
+        }
+    }
+
+    private fun moveExerciseToSection(
+        workoutExerciseId: Long,
+        sectionId: String?,
+        sectionName: String?,
+    ) {
+        launchOperation {
+            workoutSectionUseCase.moveExercise(
+                workoutId = workoutId,
+                workoutExerciseId = workoutExerciseId,
+                sectionId = sectionId,
+                sectionName = sectionName,
+            )
         }
     }
 

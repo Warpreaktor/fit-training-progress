@@ -27,6 +27,26 @@ sealed interface WorkoutEditorAction {
         val workoutExerciseId: Long,
     ) : WorkoutEditorAction
 
+    data class CreateSection(
+        val workoutExerciseIds: Set<Long>,
+        val name: String,
+    ) : WorkoutEditorAction
+
+    data class RenameSection(
+        val sectionId: String,
+        val name: String,
+    ) : WorkoutEditorAction
+
+    data class RemoveSection(
+        val sectionId: String,
+    ) : WorkoutEditorAction
+
+    data class MoveExerciseToSection(
+        val workoutExerciseId: Long,
+        val sectionId: String?,
+        val sectionName: String?,
+    ) : WorkoutEditorAction
+
     data class AddSetClick(
         val workoutExerciseId: Long,
     ) : WorkoutEditorAction

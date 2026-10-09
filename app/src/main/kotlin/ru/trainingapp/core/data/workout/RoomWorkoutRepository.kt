@@ -2,6 +2,7 @@ package ru.trainingapp.core.data.workout
 
 import androidx.room.withTransaction
 import java.util.Calendar
+import java.util.UUID
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
@@ -185,6 +186,8 @@ class RoomWorkoutRepository @Inject constructor(
                 tagIds = tagDao.getWorkoutTagIds(workoutId).toSet(),
             )
 
+            val duplicatedSectionIds = mutableMapOf<String, String>()
+
             workoutExerciseDao
                 .getActiveWorkoutExerciseEntities(workoutId)
                 .sortedBy { workoutExercise -> workoutExercise.sortOrder }
@@ -193,6 +196,11 @@ class RoomWorkoutRepository @Inject constructor(
                         sourceWorkoutExercise.copy(
                             id = 0L,
                             workoutId = duplicatedWorkoutId,
+                            sectionId = sourceWorkoutExercise.sectionId?.let { sourceSectionId ->
+                                duplicatedSectionIds.getOrPut(sourceSectionId) {
+                                    UUID.randomUUID().toString()
+                                }
+                            },
                             isChecked = false,
                             checkedAt = null,
                             isArchived = false,
@@ -674,6 +682,200 @@ class RoomWorkoutRepository @Inject constructor(
         )
     }
 
+    override suspend fun createWorkoutExerciseSection(
+        workoutId: Long,
+        workoutExerciseIds: Set<Long>,
+        name: String,
+    ) {
+        val normalizedName = name.trim()
+        if (normalizedName.isBlank() || workoutExerciseIds.isEmpty()) return
+
+        val now = System.currentTimeMillis()
+        val sectionId = UUID.randomUUID().toString()
+
+        database.withTransaction {
+            val exercises = workoutExerciseDao
+                .getActiveWorkoutExerciseEntities(workoutId)
+                .sortedBy { exercise -> exercise.sortOrder }
+            val selectedExercises = exercises
+                .filter { exercise -> exercise.id in workoutExerciseIds }
+
+            if (selectedExercises.isEmpty()) {
+                return@withTransaction
+            }
+
+            val firstSelectedIndex = exercises
+                .indexOfFirst { exercise -> exercise.id in workoutExerciseIds }
+            val reorderedExercises = exercises
+                .filterNot { exercise -> exercise.id in workoutExerciseIds }
+                .toMutableList()
+
+            reorderedExercises.addAll(
+                index = firstSelectedIndex,
+                elements = selectedExercises.map { exercise ->
+                    exercise.copy(
+                        sectionId = sectionId,
+                        sectionName = normalizedName,
+                    )
+                },
+            )
+
+            reorderedExercises.forEachIndexed { index, exercise ->
+                if (
+                    exercise.sortOrder != index ||
+                    exercise.id in workoutExerciseIds
+                ) {
+                    workoutExerciseDao.updateWorkoutExercise(
+                        exercise.copy(
+                            sortOrder = index,
+                            updatedAt = now,
+                        )
+                    )
+                }
+            }
+
+            workoutDao.touchWorkout(
+                id = workoutId,
+                updatedAt = now,
+            )
+        }
+    }
+
+    override suspend fun renameWorkoutExerciseSection(
+        workoutId: Long,
+        sectionId: String,
+        name: String,
+    ) {
+        val normalizedName = name.trim()
+        if (normalizedName.isBlank()) return
+
+        val now = System.currentTimeMillis()
+
+        database.withTransaction {
+            workoutExerciseDao
+                .getActiveWorkoutExerciseEntities(workoutId)
+                .filter { exercise -> exercise.sectionId == sectionId }
+                .forEach { exercise ->
+                    workoutExerciseDao.updateWorkoutExercise(
+                        exercise.copy(
+                            sectionName = normalizedName,
+                            updatedAt = now,
+                        )
+                    )
+                }
+
+            workoutDao.touchWorkout(
+                id = workoutId,
+                updatedAt = now,
+            )
+        }
+    }
+
+    override suspend fun removeWorkoutExerciseSection(
+        workoutId: Long,
+        sectionId: String,
+    ) {
+        val now = System.currentTimeMillis()
+
+        database.withTransaction {
+            workoutExerciseDao
+                .getActiveWorkoutExerciseEntities(workoutId)
+                .filter { exercise -> exercise.sectionId == sectionId }
+                .forEach { exercise ->
+                    workoutExerciseDao.updateWorkoutExercise(
+                        exercise.copy(
+                            sectionId = null,
+                            sectionName = null,
+                            updatedAt = now,
+                        )
+                    )
+                }
+
+            workoutDao.touchWorkout(
+                id = workoutId,
+                updatedAt = now,
+            )
+        }
+    }
+
+    override suspend fun moveWorkoutExerciseToSection(
+        workoutId: Long,
+        workoutExerciseId: Long,
+        sectionId: String?,
+        sectionName: String?,
+    ) {
+        val now = System.currentTimeMillis()
+
+        database.withTransaction {
+            val exercises = workoutExerciseDao
+                .getActiveWorkoutExerciseEntities(workoutId)
+                .sortedBy { exercise -> exercise.sortOrder }
+            val exercise = exercises
+                .firstOrNull { item -> item.id == workoutExerciseId }
+                ?: return@withTransaction
+
+            val normalizedSectionName = sectionName
+                ?.trim()
+                ?.takeIf { name -> name.isNotBlank() }
+            val targetSectionId = sectionId
+                ?.takeIf { normalizedSectionName != null }
+
+            if (
+                exercise.sectionId == targetSectionId &&
+                exercise.sectionName == normalizedSectionName
+            ) {
+                return@withTransaction
+            }
+
+            if (targetSectionId == null) {
+                workoutExerciseDao.updateWorkoutExercise(
+                    exercise.copy(
+                        sectionId = null,
+                        sectionName = null,
+                        updatedAt = now,
+                    )
+                )
+            } else {
+                val remainingExercises = exercises
+                    .filterNot { item -> item.id == workoutExerciseId }
+                    .toMutableList()
+                val lastTargetIndex = remainingExercises
+                    .indexOfLast { item -> item.sectionId == targetSectionId }
+
+                if (lastTargetIndex == -1) {
+                    return@withTransaction
+                }
+
+                remainingExercises.add(
+                    index = lastTargetIndex + 1,
+                    element = exercise.copy(
+                        sectionId = targetSectionId,
+                        sectionName = normalizedSectionName,
+                    ),
+                )
+
+                remainingExercises.forEachIndexed { index, item ->
+                    if (
+                        item.sortOrder != index ||
+                        item.id == workoutExerciseId
+                    ) {
+                        workoutExerciseDao.updateWorkoutExercise(
+                            item.copy(
+                                sortOrder = index,
+                                updatedAt = now,
+                            )
+                        )
+                    }
+                }
+            }
+
+            workoutDao.touchWorkout(
+                id = workoutId,
+                updatedAt = now,
+            )
+        }
+    }
+
     override suspend fun removeExerciseFromWorkout(
         workoutId: Long,
         exerciseDefinitionId: Long,
@@ -897,6 +1099,8 @@ class RoomWorkoutRepository @Inject constructor(
             originalExerciseName = originalExerciseName,
             exerciseName = exerciseName,
             sortOrder = sortOrder,
+            sectionId = sectionId,
+            sectionName = sectionName,
             comment = comment,
             isChecked = isChecked,
             sets = sets,

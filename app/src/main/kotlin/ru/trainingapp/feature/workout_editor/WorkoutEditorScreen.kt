@@ -4,6 +4,8 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -24,6 +26,8 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material.icons.filled.Menu
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -71,6 +75,8 @@ import androidx.compose.material3.Checkbox
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
@@ -138,6 +144,20 @@ private fun WorkoutEditorScreen(
     onAction: (WorkoutEditorAction) -> Unit,
 ) {
     val snackbarHostState = remember { SnackbarHostState() }
+    var selectedExerciseIds by rememberSaveable {
+        mutableStateOf(emptyList<Long>())
+    }
+    var isCreateSectionDialogVisible by rememberSaveable {
+        mutableStateOf(false)
+    }
+
+    val selectedIds = selectedExerciseIds.toSet()
+    val isSelectionMode = selectedExerciseIds.isNotEmpty()
+
+    LaunchedEffect(uiState.exercises.map { exercise -> exercise.id }) {
+        val availableIds = uiState.exercises.mapTo(mutableSetOf()) { exercise -> exercise.id }
+        selectedExerciseIds = selectedExerciseIds.filter { id -> id in availableIds }
+    }
 
     LaunchedEffect(uiState.errorMessage) {
         val message = uiState.errorMessage ?: return@LaunchedEffect
@@ -150,55 +170,94 @@ private fun WorkoutEditorScreen(
         onAction(WorkoutEditorAction.ErrorMessageShown)
     }
 
-    BackHandler(
-        onBack = onBack,
-    )
+    fun toggleSelection(workoutExerciseId: Long) {
+        selectedExerciseIds = if (workoutExerciseId in selectedIds) {
+            selectedExerciseIds - workoutExerciseId
+        } else {
+            selectedExerciseIds + workoutExerciseId
+        }
+    }
+
+    BackHandler {
+        if (isSelectionMode) {
+            selectedExerciseIds = emptyList()
+        } else {
+            onBack()
+        }
+    }
 
     Scaffold(
         topBar = {
             TopAppBar(
-
                 title = {
                     Text(
-                        text = uiState.title.ifBlank { "Тренировка" },
+                        text = if (isSelectionMode) {
+                            "Выбрано: ${selectedExerciseIds.size}"
+                        } else {
+                            uiState.title.ifBlank { "Тренировка" }
+                        },
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )
                 },
-
                 navigationIcon = {
                     IconButton(
-                        onClick = onBack,
+                        onClick = {
+                            if (isSelectionMode) {
+                                selectedExerciseIds = emptyList()
+                            } else {
+                                onBack()
+                            }
+                        },
                     ) {
                         Icon(
-                            imageVector = Icons.AutoMirrored.Default.ArrowBack,
-                            contentDescription = "Назад",
+                            imageVector = if (isSelectionMode) {
+                                Icons.Default.Close
+                            } else {
+                                Icons.AutoMirrored.Default.ArrowBack
+                            },
+                            contentDescription = if (isSelectionMode) {
+                                "Отменить выбор"
+                            } else {
+                                "Назад"
+                            },
                         )
                     }
                 },
-
                 actions = {
-                    TextButton(
-                        onClick = {
-                            onAction(WorkoutEditorAction.ResetCheckmarksClick)
-                        },
-                        enabled = uiState.exercises.any { exercise -> exercise.isChecked },
-                    ) {
-                        Text("Снять галки")
+                    if (isSelectionMode) {
+                        TextButton(
+                            onClick = {
+                                isCreateSectionDialogVisible = true
+                            },
+                        ) {
+                            Text("Создать секцию")
+                        }
+                    } else {
+                        TextButton(
+                            onClick = {
+                                onAction(WorkoutEditorAction.ResetCheckmarksClick)
+                            },
+                            enabled = uiState.exercises.any { exercise -> exercise.isChecked },
+                        ) {
+                            Text("Снять галки")
+                        }
                     }
                 },
             )
         },
         floatingActionButton = {
-            FloatingActionButton(
-                onClick = {
-                    onAction(WorkoutEditorAction.AddExerciseClick)
-                },
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Add,
-                    contentDescription = "Добавить упражнение",
-                )
+            if (!isSelectionMode) {
+                FloatingActionButton(
+                    onClick = {
+                        onAction(WorkoutEditorAction.AddExerciseClick)
+                    },
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Add,
+                        contentDescription = "Добавить упражнение",
+                    )
+                }
             }
         },
         snackbarHost = {
@@ -230,6 +289,8 @@ private fun WorkoutEditorScreen(
                 else -> {
                     WorkoutExerciseList(
                         uiState = uiState,
+                        selectedExerciseIds = selectedIds,
+                        onToggleSelection = ::toggleSelection,
                         onOpenExerciseProgress = onOpenExerciseProgress,
                         onAction = onAction,
                     )
@@ -260,6 +321,27 @@ private fun WorkoutEditorScreen(
                 },
             )
         }
+
+        if (isCreateSectionDialogVisible) {
+            SectionNameDialog(
+                title = "Новая секция",
+                initialName = "",
+                confirmText = "Создать",
+                onDismiss = {
+                    isCreateSectionDialogVisible = false
+                },
+                onConfirm = { name ->
+                    isCreateSectionDialogVisible = false
+                    onAction(
+                        WorkoutEditorAction.CreateSection(
+                            workoutExerciseIds = selectedIds,
+                            name = name,
+                        )
+                    )
+                    selectedExerciseIds = emptyList()
+                },
+            )
+        }
     }
 }
 
@@ -267,6 +349,8 @@ private fun WorkoutEditorScreen(
 @Composable
 private fun WorkoutExerciseList(
     uiState: WorkoutEditorUiState,
+    selectedExerciseIds: Set<Long>,
+    onToggleSelection: (Long) -> Unit,
     onOpenExerciseProgress: (Long) -> Unit,
     onAction: (WorkoutEditorAction) -> Unit,
 ) {
@@ -282,9 +366,122 @@ private fun WorkoutExerciseList(
         timerElapsedMillis = uiState.timerElapsedMillis,
     )
     val isTimerRunning = uiState.timerStartedAt != null
+    val isSelectionMode = selectedExerciseIds.isNotEmpty()
 
     var isTargetDurationDialogVisible by rememberSaveable {
         mutableStateOf(false)
+    }
+    var collapsedSectionIds by rememberSaveable {
+        mutableStateOf(emptyList<String>())
+    }
+    var renameSectionId by rememberSaveable {
+        mutableStateOf<String?>(null)
+    }
+    var renameSectionName by rememberSaveable {
+        mutableStateOf("")
+    }
+    var draggingExerciseId by remember {
+        mutableStateOf<Long?>(null)
+    }
+    var dragOffsetY by remember {
+        mutableStateOf(0f)
+    }
+    var dragTarget by remember {
+        mutableStateOf<ExerciseSectionDropTarget?>(null)
+    }
+
+    val collapsedSections = collapsedSectionIds.toSet()
+    val rows = remember(exercises, collapsedSections) {
+        buildWorkoutListRows(
+            exercises = exercises,
+            collapsedSectionIds = collapsedSections,
+        )
+    }
+    val sectionsById = remember(exercises) {
+        exercises
+            .filter { exercise -> exercise.sectionId != null }
+            .groupBy { exercise -> requireNotNull(exercise.sectionId) }
+            .mapValues { (sectionId, sectionExercises) ->
+                WorkoutSectionUi(
+                    id = sectionId,
+                    name = sectionExercises.first().sectionName.orEmpty().ifBlank { "Секция" },
+                    exercises = sectionExercises.sortedBy { exercise -> exercise.sortOrder },
+                )
+            }
+    }
+
+    fun updateDragTarget(workoutExerciseId: Long, deltaY: Float) {
+        dragOffsetY += deltaY
+
+        val draggedKey = exerciseListKey(workoutExerciseId)
+        val draggedInfo = listState.layoutInfo.visibleItemsInfo
+            .firstOrNull { item -> item.key == draggedKey }
+            ?: return
+
+        val draggedCenterY = draggedInfo.offset + draggedInfo.size / 2f + dragOffsetY
+        val hoveredItem = listState.layoutInfo.visibleItemsInfo
+            .firstOrNull { item ->
+                item.key != draggedKey &&
+                    draggedCenterY >= item.offset &&
+                    draggedCenterY <= item.offset + item.size
+            }
+
+        dragTarget = when (val key = hoveredItem?.key as? String) {
+            null -> null
+            else -> when {
+                key.startsWith(SECTION_KEY_PREFIX) -> {
+                    val sectionId = key.removePrefix(SECTION_KEY_PREFIX)
+                    sectionsById[sectionId]?.let { section ->
+                        ExerciseSectionDropTarget(
+                            sectionId = section.id,
+                            sectionName = section.name,
+                        )
+                    }
+                }
+
+                key.startsWith(EXERCISE_KEY_PREFIX) -> {
+                    val targetExerciseId = key
+                        .removePrefix(EXERCISE_KEY_PREFIX)
+                        .toLongOrNull()
+                    val targetExercise = exercises
+                        .firstOrNull { exercise -> exercise.id == targetExerciseId }
+
+                    targetExercise?.let { exercise ->
+                        ExerciseSectionDropTarget(
+                            sectionId = exercise.sectionId,
+                            sectionName = exercise.sectionName,
+                        )
+                    }
+                }
+
+                else -> null
+            }
+        }
+    }
+
+    fun finishDrag() {
+        val workoutExerciseId = draggingExerciseId
+        val target = dragTarget
+
+        if (workoutExerciseId != null && target != null) {
+            val exercise = exercises.firstOrNull { item -> item.id == workoutExerciseId }
+            if (
+                exercise != null &&
+                (exercise.sectionId != target.sectionId || exercise.sectionName != target.sectionName)
+            ) {
+                onAction(
+                    WorkoutEditorAction.MoveExerciseToSection(
+                        workoutExerciseId = workoutExerciseId,
+                        sectionId = target.sectionId,
+                        sectionName = target.sectionName,
+                    )
+                )
+            }
+        }
+
+        draggingExerciseId = null
+        dragOffsetY = 0f
+        dragTarget = null
     }
 
     LazyColumn(
@@ -338,65 +535,121 @@ private fun WorkoutExerciseList(
         }
 
         items(
-            items = exercises,
-            key = { exercise -> exercise.id },
-        ) { exercise ->
-            val index = exercises.indexOfFirst { it.id == exercise.id }
+            items = rows,
+            key = { row -> row.key },
+        ) { row ->
+            when (row) {
+                is WorkoutListRow.SectionHeader -> {
+                    WorkoutSectionHeader(
+                        section = row.section,
+                        isCollapsed = row.section.id in collapsedSections,
+                        isDropTarget = dragTarget?.sectionId == row.section.id,
+                        onToggleCollapsed = {
+                            collapsedSectionIds = if (row.section.id in collapsedSections) {
+                                collapsedSectionIds - row.section.id
+                            } else {
+                                collapsedSectionIds + row.section.id
+                            }
+                        },
+                        onRename = {
+                            renameSectionId = row.section.id
+                            renameSectionName = row.section.name
+                        },
+                        onRemove = {
+                            onAction(
+                                WorkoutEditorAction.RemoveSection(
+                                    sectionId = row.section.id,
+                                )
+                            )
+                        },
+                    )
+                }
 
-            var isExpanded by rememberSaveable(exercise.id) {
-                mutableStateOf(false)
+                is WorkoutListRow.Exercise -> {
+                    val exercise = row.exercise
+                    val index = exercises.indexOfFirst { item -> item.id == exercise.id }
+                    val previousExercise = exercises.getOrNull(index - 1)
+                    val nextExercise = exercises.getOrNull(index + 1)
+                    val isDragging = draggingExerciseId == exercise.id
+                    val canMoveUp = previousExercise != null && previousExercise.sectionId == exercise.sectionId
+                    val canMoveDown = nextExercise != null && nextExercise.sectionId == exercise.sectionId
+
+                    var isExpanded by rememberSaveable(exercise.id) {
+                        mutableStateOf(false)
+                    }
+
+                    WorkoutExerciseCard(
+                        exercise = exercise,
+                        isExpanded = isExpanded,
+                        isSelected = exercise.id in selectedExerciseIds,
+                        isSelectionMode = isSelectionMode,
+                        dragTranslationY = if (isDragging) dragOffsetY else 0f,
+                        onExerciseClick = {
+                            if (isSelectionMode) {
+                                onToggleSelection(exercise.id)
+                            } else {
+                                isExpanded = !isExpanded
+                            }
+                        },
+                        onExerciseLongClick = {
+                            onToggleSelection(exercise.id)
+                        },
+                        onDragStart = {
+                            draggingExerciseId = exercise.id
+                            dragOffsetY = 0f
+                            dragTarget = null
+                        },
+                        onDragDelta = { deltaY ->
+                            updateDragTarget(
+                                workoutExerciseId = exercise.id,
+                                deltaY = deltaY,
+                            )
+                        },
+                        onDragEnd = ::finishDrag,
+                        canMoveUp = canMoveUp,
+                        canMoveDown = canMoveDown,
+                        onMoveUpClick = {
+                            onAction(
+                                WorkoutEditorAction.MoveExerciseUpClick(
+                                    workoutExerciseId = exercise.id,
+                                )
+                            )
+                        },
+                        onOpenProgressClick = {
+                            onOpenExerciseProgress(exercise.id)
+                        },
+                        onMoveDownClick = {
+                            onAction(
+                                WorkoutEditorAction.MoveExerciseDownClick(
+                                    workoutExerciseId = exercise.id,
+                                )
+                            )
+                        },
+                        onArchiveClick = {
+                            onAction(
+                                WorkoutEditorAction.ArchiveExerciseClick(
+                                    workoutExerciseId = exercise.id,
+                                )
+                            )
+                        },
+                        onAddSetClick = {
+                            onAction(
+                                WorkoutEditorAction.AddSetClick(
+                                    workoutExerciseId = exercise.id,
+                                )
+                            )
+                        },
+                        onRemoveSetClick = { setId ->
+                            onAction(
+                                WorkoutEditorAction.RemoveSetClick(
+                                    workoutExerciseSetId = setId,
+                                )
+                            )
+                        },
+                        onAction = onAction,
+                    )
+                }
             }
-
-            WorkoutExerciseCard(
-                exercise = exercise,
-                isExpanded = isExpanded,
-                onToggleExpanded = {
-                    isExpanded = !isExpanded
-                },
-                canMoveUp = index > 0,
-                canMoveDown = index < exercises.lastIndex,
-                onMoveUpClick = {
-                    onAction(
-                        WorkoutEditorAction.MoveExerciseUpClick(
-                            workoutExerciseId = exercise.id,
-                        )
-                    )
-                },
-
-                onOpenProgressClick = {
-                    onOpenExerciseProgress(exercise.id)
-                },
-
-                onMoveDownClick = {
-                    onAction(
-                        WorkoutEditorAction.MoveExerciseDownClick(
-                            workoutExerciseId = exercise.id,
-                        )
-                    )
-                },
-                onArchiveClick = {
-                    onAction(
-                        WorkoutEditorAction.ArchiveExerciseClick(
-                            workoutExerciseId = exercise.id,
-                        )
-                    )
-                },
-                onAddSetClick = {
-                    onAction(
-                        WorkoutEditorAction.AddSetClick(
-                            workoutExerciseId = exercise.id,
-                        )
-                    )
-                },
-                onRemoveSetClick = { setId ->
-                    onAction(
-                        WorkoutEditorAction.RemoveSetClick(
-                            workoutExerciseSetId = setId,
-                        )
-                    )
-                },
-                onAction = onAction,
-            )
         }
     }
 
@@ -416,13 +669,255 @@ private fun WorkoutExerciseList(
             },
         )
     }
+
+    val currentRenameSectionId = renameSectionId
+    if (currentRenameSectionId != null) {
+        SectionNameDialog(
+            title = "Переименовать секцию",
+            initialName = renameSectionName,
+            confirmText = "Сохранить",
+            onDismiss = {
+                renameSectionId = null
+            },
+            onConfirm = { name ->
+                renameSectionId = null
+                onAction(
+                    WorkoutEditorAction.RenameSection(
+                        sectionId = currentRenameSectionId,
+                        name = name,
+                    )
+                )
+            },
+        )
+    }
 }
 
+private const val SECTION_KEY_PREFIX = "section:"
+private const val EXERCISE_KEY_PREFIX = "exercise:"
+
+private data class WorkoutSectionUi(
+    val id: String,
+    val name: String,
+    val exercises: List<WorkoutExerciseUi>,
+)
+
+private sealed interface WorkoutListRow {
+    val key: String
+
+    data class SectionHeader(
+        val section: WorkoutSectionUi,
+    ) : WorkoutListRow {
+        override val key: String = SECTION_KEY_PREFIX + section.id
+    }
+
+    data class Exercise(
+        val exercise: WorkoutExerciseUi,
+    ) : WorkoutListRow {
+        override val key: String = exerciseListKey(exercise.id)
+    }
+}
+
+private data class ExerciseSectionDropTarget(
+    val sectionId: String?,
+    val sectionName: String?,
+)
+
+private fun exerciseListKey(workoutExerciseId: Long): String {
+    return EXERCISE_KEY_PREFIX + workoutExerciseId
+}
+
+private fun buildWorkoutListRows(
+    exercises: List<WorkoutExerciseUi>,
+    collapsedSectionIds: Set<String>,
+): List<WorkoutListRow> {
+    val exercisesBySectionId = exercises
+        .filter { exercise -> exercise.sectionId != null }
+        .groupBy { exercise -> requireNotNull(exercise.sectionId) }
+        .mapValues { (_, sectionExercises) ->
+            sectionExercises.sortedBy { exercise -> exercise.sortOrder }
+        }
+
+    val emittedSectionIds = mutableSetOf<String>()
+    val rows = mutableListOf<WorkoutListRow>()
+
+    exercises
+        .sortedBy { exercise -> exercise.sortOrder }
+        .forEach { exercise ->
+            val sectionId = exercise.sectionId
+
+            if (sectionId == null) {
+                rows += WorkoutListRow.Exercise(exercise)
+                return@forEach
+            }
+
+            if (!emittedSectionIds.add(sectionId)) {
+                return@forEach
+            }
+
+            val sectionExercises = exercisesBySectionId[sectionId].orEmpty()
+            val section = WorkoutSectionUi(
+                id = sectionId,
+                name = exercise.sectionName.orEmpty().ifBlank { "Секция" },
+                exercises = sectionExercises,
+            )
+
+            rows += WorkoutListRow.SectionHeader(section)
+
+            if (sectionId !in collapsedSectionIds) {
+                rows += sectionExercises.map { item ->
+                    WorkoutListRow.Exercise(item)
+                }
+            }
+        }
+
+    return rows
+}
+
+@Composable
+private fun WorkoutSectionHeader(
+    section: WorkoutSectionUi,
+    isCollapsed: Boolean,
+    isDropTarget: Boolean,
+    onToggleCollapsed: () -> Unit,
+    onRename: () -> Unit,
+    onRemove: () -> Unit,
+) {
+    var isMenuExpanded by remember { mutableStateOf(false) }
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+            containerColor = if (isDropTarget) {
+                MaterialTheme.colorScheme.primaryContainer
+            } else {
+                MaterialTheme.colorScheme.secondaryContainer
+            },
+        ),
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 8.dp, vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            IconButton(onClick = onToggleCollapsed) {
+                Icon(
+                    imageVector = if (isCollapsed) {
+                        Icons.Default.ExpandMore
+                    } else {
+                        Icons.Default.ExpandLess
+                    },
+                    contentDescription = if (isCollapsed) {
+                        "Развернуть секцию"
+                    } else {
+                        "Свернуть секцию"
+                    },
+                )
+            }
+
+            Text(
+                text = "${section.name} • ${section.exercises.size}",
+                modifier = Modifier.weight(1f),
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold,
+            )
+
+            Box {
+                IconButton(
+                    onClick = {
+                        isMenuExpanded = true
+                    },
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.MoreVert,
+                        contentDescription = "Действия с секцией",
+                    )
+                }
+
+                DropdownMenu(
+                    expanded = isMenuExpanded,
+                    onDismissRequest = {
+                        isMenuExpanded = false
+                    },
+                ) {
+                    DropdownMenuItem(
+                        text = { Text("Переименовать") },
+                        onClick = {
+                            isMenuExpanded = false
+                            onRename()
+                        },
+                    )
+                    DropdownMenuItem(
+                        text = { Text("Убрать секцию") },
+                        onClick = {
+                            isMenuExpanded = false
+                            onRemove()
+                        },
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SectionNameDialog(
+    title: String,
+    initialName: String,
+    confirmText: String,
+    onDismiss: () -> Unit,
+    onConfirm: (String) -> Unit,
+) {
+    var name by rememberSaveable(initialName) {
+        mutableStateOf(initialName)
+    }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text(title)
+        },
+        text = {
+            OutlinedTextField(
+                value = name,
+                onValueChange = { value ->
+                    name = value
+                },
+                label = { Text("Название") },
+                singleLine = true,
+            )
+        },
+        confirmButton = {
+            TextButton(
+                onClick = {
+                    onConfirm(name.trim())
+                },
+                enabled = name.isNotBlank(),
+            ) {
+                Text(confirmText)
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Отмена")
+            }
+        },
+    )
+}
+
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun WorkoutExerciseCard(
     exercise: WorkoutExerciseUi,
     isExpanded: Boolean,
-    onToggleExpanded: () -> Unit,
+    isSelected: Boolean,
+    isSelectionMode: Boolean,
+    dragTranslationY: Float,
+    onExerciseClick: () -> Unit,
+    onExerciseLongClick: () -> Unit,
+    onDragStart: () -> Unit,
+    onDragDelta: (Float) -> Unit,
+    onDragEnd: () -> Unit,
     canMoveUp: Boolean,
     canMoveDown: Boolean,
     onMoveUpClick: () -> Unit,
@@ -438,9 +933,23 @@ private fun WorkoutExerciseCard(
     }
 
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .padding(start = if (exercise.sectionId != null) 8.dp else 0.dp)
+            .fillMaxWidth()
+            .graphicsLayer {
+                translationY = dragTranslationY
+                alpha = if (dragTranslationY != 0f) 0.92f else 1f
+            }
+            .combinedClickable(
+                onClick = onExerciseClick,
+                onLongClick = onExerciseLongClick,
+            ),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
+            containerColor = if (isSelected) {
+                MaterialTheme.colorScheme.primaryContainer
+            } else {
+                MaterialTheme.colorScheme.surfaceContainerHighest
+            },
         ),
     ) {
         Column(
@@ -472,7 +981,6 @@ private fun WorkoutExerciseCard(
                     Row(
                         modifier = Modifier
                             .weight(1f)
-                            .clickable(onClick = onToggleExpanded)
                             .padding(vertical = 8.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
@@ -481,6 +989,33 @@ private fun WorkoutExerciseCard(
                             modifier = Modifier.weight(1f),
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.SemiBold,
+                        )
+
+                        Icon(
+                            imageVector = Icons.Default.Menu,
+                            contentDescription = "Перетащить упражнение в секцию",
+                            modifier = Modifier
+                                .size(32.dp)
+                                .then(
+                                    if (isSelectionMode) {
+                                        Modifier
+                                    } else {
+                                        Modifier.pointerInput(exercise.id) {
+                                            detectDragGestures(
+                                                onDragStart = {
+                                                    onDragStart()
+                                                },
+                                                onDragEnd = onDragEnd,
+                                                onDragCancel = onDragEnd,
+                                                onDrag = { change, dragAmount ->
+                                                    change.consume()
+                                                    onDragDelta(dragAmount.y)
+                                                },
+                                            )
+                                        }
+                                    }
+                                )
+                                .padding(4.dp),
                         )
 
                         Icon(

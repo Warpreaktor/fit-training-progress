@@ -83,6 +83,30 @@ interface WorkoutRepository {
         exerciseDefinitionId: Long,
     )
 
+    suspend fun createWorkoutExerciseSection(
+        workoutId: Long,
+        workoutExerciseIds: Set<Long>,
+        name: String,
+    )
+
+    suspend fun renameWorkoutExerciseSection(
+        workoutId: Long,
+        sectionId: String,
+        name: String,
+    )
+
+    suspend fun removeWorkoutExerciseSection(
+        workoutId: Long,
+        sectionId: String,
+    )
+
+    suspend fun moveWorkoutExerciseToSection(
+        workoutId: Long,
+        workoutExerciseId: Long,
+        sectionId: String?,
+        sectionName: String?,
+    )
+
     suspend fun archiveWorkoutExercise(
         workoutExerciseId: Long,
     )

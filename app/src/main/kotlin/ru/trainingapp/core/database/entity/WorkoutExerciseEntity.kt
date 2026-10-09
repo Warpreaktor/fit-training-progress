@@ -38,5 +38,7 @@ data class WorkoutExerciseEntity(
     val isArchived: Boolean = false,
     val archivedAt: Long? = null,
     val createdAt: Long,
-    val updatedAt: Long
+    val updatedAt: Long,
+    val sectionId: String? = null,
+    val sectionName: String? = null,
 )

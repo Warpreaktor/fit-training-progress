@@ -14,5 +14,7 @@ data class WorkoutExerciseListItemDbModel(
     val isArchived: Boolean,
     val archivedAt: Long?,
     val createdAt: Long,
-    val updatedAt: Long
+    val updatedAt: Long,
+    val sectionId: String?,
+    val sectionName: String?,
 )

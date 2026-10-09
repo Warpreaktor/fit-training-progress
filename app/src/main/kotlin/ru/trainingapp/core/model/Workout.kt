@@ -40,6 +40,8 @@ data class WorkoutExercise(
     val isChecked: Boolean,
     val images: List<ExerciseImage> = emptyList(),
     val sets: List<WorkoutExerciseSet>,
+    val sectionId: String? = null,
+    val sectionName: String? = null,
 )
 
 data class WorkoutExerciseSet(
