@@ -12,6 +12,7 @@ import ru.trainingapp.core.model.WorkoutExerciseSetLoadType
 data class ProgressChartData(
     val workoutExerciseId: Long,
     val exerciseName: String,
+    val executionMethod: String?,
     val latestResultLabel: String,
     val series: List<ProgressChartSeriesUi>,
     val points: List<ProgressChartPointUi>,
@@ -83,6 +84,7 @@ fun List<WorkoutExerciseProgressPoint>.toProgressChartData(): ProgressChartData?
     return ProgressChartData(
         workoutExerciseId = dailyPoints.last().workoutExerciseId,
         exerciseName = dailyPoints.last().exerciseNameSnapshot,
+        executionMethod = dailyPoints.last().executionMethodSnapshot,
         latestResultLabel = chartPoints.last().resultLabel,
         series = chartPoints.toSeries(
             mode = mode,

@@ -12,6 +12,7 @@ fun WorkoutExerciseProgressPointWithSetsDbModel.toDomain(): WorkoutExerciseProgr
         workoutExerciseId = point.workoutExerciseId,
         exerciseDefinitionId = point.exerciseDefinitionId,
         exerciseNameSnapshot = point.exerciseNameSnapshot,
+        executionMethodSnapshot = point.executionMethodSnapshot,
         createdAt = point.createdAt,
         revision = point.revision,
         reason = point.reason,

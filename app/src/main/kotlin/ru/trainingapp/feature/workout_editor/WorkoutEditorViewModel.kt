@@ -23,6 +23,7 @@ import ru.trainingapp.core.domain.workout.RemoveWorkoutExerciseSetUseCase
 import ru.trainingapp.core.domain.workout.ResetWorkoutCheckmarksUseCase
 import ru.trainingapp.core.domain.workout.SelectWorkoutExerciseVariantUseCase
 import ru.trainingapp.core.domain.workout.ToggleWorkoutExerciseCheckedUseCase
+import ru.trainingapp.core.domain.workout.UpdateWorkoutExerciseExecutionMethodUseCase
 import ru.trainingapp.core.domain.workout.UpdateWorkoutExerciseSetUseCase
 import ru.trainingapp.core.domain.workout.WorkoutSectionUseCase
 import ru.trainingapp.core.domain.workout.WorkoutTimerUseCase
@@ -44,6 +45,7 @@ class WorkoutEditorViewModel @Inject constructor(
     private val toggleWorkoutExerciseCheckedUseCase: ToggleWorkoutExerciseCheckedUseCase,
     private val resetWorkoutCheckmarksUseCase: ResetWorkoutCheckmarksUseCase,
     private val selectWorkoutExerciseVariantUseCase: SelectWorkoutExerciseVariantUseCase,
+    private val updateWorkoutExerciseExecutionMethodUseCase: UpdateWorkoutExerciseExecutionMethodUseCase,
     private val commitPendingProgressUseCase: CommitPendingProgressUseCase,
     private val workoutTimerUseCase: WorkoutTimerUseCase,
     private val workoutSectionUseCase: WorkoutSectionUseCase,
@@ -158,6 +160,13 @@ class WorkoutEditorViewModel @Inject constructor(
                 selectExerciseVariant(
                     workoutExerciseId = action.workoutExerciseId,
                     exerciseDefinitionId = action.exerciseDefinitionId,
+                )
+            }
+
+            is WorkoutEditorAction.ExecutionMethodChanged -> {
+                updateExecutionMethod(
+                    workoutExerciseId = action.workoutExerciseId,
+                    executionMethod = action.executionMethod,
                 )
             }
 
@@ -363,6 +372,18 @@ class WorkoutEditorViewModel @Inject constructor(
     ) {
         launchOperation {
             archiveWorkoutExerciseUseCase(workoutExerciseId)
+        }
+    }
+
+    private fun updateExecutionMethod(
+        workoutExerciseId: Long,
+        executionMethod: String?,
+    ) {
+        launchOperation {
+            updateWorkoutExerciseExecutionMethodUseCase(
+                workoutExerciseId = workoutExerciseId,
+                executionMethod = executionMethod,
+            )
         }
     }
 

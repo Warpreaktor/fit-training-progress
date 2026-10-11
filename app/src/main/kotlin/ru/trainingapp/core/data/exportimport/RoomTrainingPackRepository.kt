@@ -174,6 +174,7 @@ class RoomTrainingPackRepository @Inject constructor(
                 exerciseRef = exerciseRef,
                 sortOrder = workoutExercise.sortOrder,
                 comment = workoutExercise.comment,
+                executionMethod = workoutExercise.executionMethod,
                 sets = workoutExerciseSetDao
                     .getSetsByWorkoutExerciseId(workoutExercise.id)
                     .sortedBy { set -> set.setNumber }
@@ -471,6 +472,9 @@ class RoomTrainingPackRepository @Inject constructor(
                     comment = exerciseDto.comment
                         ?.trim()
                         ?.takeIf { comment -> comment.isNotBlank() },
+                    executionMethod = exerciseDto.executionMethod
+                        ?.trim()
+                        ?.takeIf { method -> method.isNotBlank() },
                     isChecked = false,
                     checkedAt = null,
                     isArchived = false,

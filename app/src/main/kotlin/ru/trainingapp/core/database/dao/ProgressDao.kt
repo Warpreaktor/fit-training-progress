@@ -120,6 +120,7 @@ interface ProgressDao {
         SET workoutId = :workoutId,
             exerciseDefinitionId = :exerciseDefinitionId,
             exerciseNameSnapshot = :exerciseNameSnapshot,
+            executionMethodSnapshot = :executionMethodSnapshot,
             createdAt = :createdAt,
             reason = :reason
         WHERE id = :progressPointId
@@ -130,6 +131,7 @@ interface ProgressDao {
         workoutId: Long,
         exerciseDefinitionId: Long,
         exerciseNameSnapshot: String,
+        executionMethodSnapshot: String?,
         createdAt: Long,
         reason: String,
     )

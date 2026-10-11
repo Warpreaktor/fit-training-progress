@@ -6,6 +6,7 @@ data class WorkoutExerciseProgressPoint(
     val workoutExerciseId: Long,
     val exerciseDefinitionId: Long,
     val exerciseNameSnapshot: String,
+    val executionMethodSnapshot: String?,
     val createdAt: Long,
     val revision: Int,
     val reason: String,

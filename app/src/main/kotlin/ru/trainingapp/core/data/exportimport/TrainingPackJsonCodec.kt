@@ -96,6 +96,7 @@ class TrainingPackJsonCodec @Inject constructor() {
                             exerciseRef = exercise.optNullableString("exerciseRef"),
                             sortOrder = exercise.optNullableInt("sortOrder") ?: exerciseIndex,
                             comment = exercise.optNullableString("comment"),
+                            executionMethod = exercise.optNullableString("executionMethod"),
                             sets = exercise.optArray("sets").mapObjects { set, setIndex ->
                                 ExportWorkoutExerciseSetDto(
                                     setNumber = set.optNullableInt("setNumber") ?: setIndex + 1,
@@ -166,6 +167,7 @@ class TrainingPackJsonCodec @Inject constructor() {
             .putNullable("exerciseRef", exerciseRef)
             .putNullable("sortOrder", sortOrder)
             .putNullable("comment", comment)
+            .putNullable("executionMethod", executionMethod)
             .put(
                 "sets",
                 JSONArray().apply {

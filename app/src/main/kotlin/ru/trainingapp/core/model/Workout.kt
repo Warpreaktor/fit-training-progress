@@ -37,6 +37,7 @@ data class WorkoutExercise(
     val exerciseName: String,
     val sortOrder: Int,
     val comment: String?,
+    val executionMethod: String?,
     val isChecked: Boolean,
     val images: List<ExerciseImage> = emptyList(),
     val sets: List<WorkoutExerciseSet>,

@@ -15,6 +15,7 @@ data class WorkoutExerciseUi(
     val exerciseName: String,
     val sortOrder: Int,
     val comment: String?,
+    val executionMethod: String?,
     val isChecked: Boolean,
     val alternatives: List<WorkoutExerciseAlternativeUi>,
     val sets: List<WorkoutExerciseSetUi>,
@@ -59,6 +60,7 @@ fun WorkoutExercise.toUi(
         sectionId = sectionId,
         sectionName = sectionName,
         comment = comment,
+        executionMethod = executionMethod,
         isChecked = isChecked,
         alternatives = alternatives.map { alternative ->
             WorkoutExerciseAlternativeUi(

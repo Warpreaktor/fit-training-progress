@@ -1,6 +1,6 @@
 package ru.trainingapp.core.data.exportimport.dto
 
-const val CURRENT_TRAINING_PACK_SCHEMA_VERSION = 1
+const val CURRENT_TRAINING_PACK_SCHEMA_VERSION = 2
 const val TRAINING_PACK_EXPORT_TYPE_SINGLE_EXERCISE = "SINGLE_EXERCISE"
 const val TRAINING_PACK_EXPORT_TYPE_WORKOUT = "WORKOUT"
 
@@ -48,6 +48,7 @@ data class ExportWorkoutExerciseDto(
     val exerciseRef: String?,
     val sortOrder: Int? = null,
     val comment: String? = null,
+    val executionMethod: String? = null,
     val sets: List<ExportWorkoutExerciseSetDto> = emptyList(),
 )
 

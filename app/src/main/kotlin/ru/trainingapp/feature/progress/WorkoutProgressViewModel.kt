@@ -41,9 +41,9 @@ class WorkoutProgressViewModel @Inject constructor(
             observeWorkoutEditorUseCase(workoutId),
         ) { points, editorData ->
             points.toWorkoutProgressUiState(
-                activeWorkoutExerciseIds = editorData
+                activeExecutionMethods = editorData
                     ?.exercises
-                    ?.mapTo(mutableSetOf()) { exercise -> exercise.id }
+                    ?.associate { exercise -> exercise.id to exercise.executionMethod }
                     .orEmpty(),
             )
         }
@@ -68,18 +68,29 @@ data class WorkoutProgressUiState(
 data class WorkoutProgressExerciseUi(
     val workoutExerciseId: Long,
     val exerciseName: String,
+    val executionMethod: String?,
     val latestResultLabel: String,
     val series: List<ProgressChartSeriesUi>,
     val points: List<ProgressChartPointUi>,
 )
 
 private fun List<WorkoutExerciseProgressPoint>.toWorkoutProgressUiState(
-    activeWorkoutExerciseIds: Set<Long>,
+    activeExecutionMethods: Map<Long, String?>,
 ): WorkoutProgressUiState {
     val allExercises = groupBy { point -> point.workoutExerciseId }
         .values
-        .mapNotNull { points -> points.toWorkoutProgressExerciseUi() }
-        .sortedBy { exercise -> exercise.exerciseName.lowercase(Locale.getDefault()) }
+        .mapNotNull { points ->
+            points.toWorkoutProgressExerciseUi(
+                activeExecutionMethods = activeExecutionMethods,
+            )
+        }
+        .sortedWith(
+            compareBy<WorkoutProgressExerciseUi> { exercise ->
+                exercise.exerciseName.lowercase(Locale.getDefault())
+            }.thenBy { exercise ->
+                exercise.executionMethod.orEmpty().lowercase(Locale.getDefault())
+            }
+        )
 
     if (allExercises.isEmpty()) {
         return WorkoutProgressUiState(
@@ -90,7 +101,7 @@ private fun List<WorkoutExerciseProgressPoint>.toWorkoutProgressUiState(
     }
 
     val (activeExercises, archivedExercises) = allExercises.partition { exercise ->
-        exercise.workoutExerciseId in activeWorkoutExerciseIds
+        exercise.workoutExerciseId in activeExecutionMethods
     }
 
     return WorkoutProgressUiState(
@@ -100,12 +111,20 @@ private fun List<WorkoutExerciseProgressPoint>.toWorkoutProgressUiState(
     )
 }
 
-private fun List<WorkoutExerciseProgressPoint>.toWorkoutProgressExerciseUi(): WorkoutProgressExerciseUi? {
+private fun List<WorkoutExerciseProgressPoint>.toWorkoutProgressExerciseUi(
+    activeExecutionMethods: Map<Long, String?>,
+): WorkoutProgressExerciseUi? {
     val chartData = toProgressChartData() ?: return null
+    val executionMethod = if (chartData.workoutExerciseId in activeExecutionMethods) {
+        activeExecutionMethods[chartData.workoutExerciseId]
+    } else {
+        chartData.executionMethod
+    }
 
     return WorkoutProgressExerciseUi(
         workoutExerciseId = chartData.workoutExerciseId,
         exerciseName = chartData.exerciseName,
+        executionMethod = executionMethod,
         latestResultLabel = chartData.latestResultLabel,
         series = chartData.series,
         points = chartData.points,

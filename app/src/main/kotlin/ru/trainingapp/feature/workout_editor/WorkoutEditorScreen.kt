@@ -931,6 +931,12 @@ private fun WorkoutExerciseCard(
     var isVariantDialogVisible by rememberSaveable(exercise.id, "variant-dialog") {
         mutableStateOf(false)
     }
+    var isExerciseMenuExpanded by rememberSaveable(exercise.id, "exercise-menu") {
+        mutableStateOf(false)
+    }
+    var isExecutionMethodDialogVisible by rememberSaveable(exercise.id, "execution-method-dialog") {
+        mutableStateOf(false)
+    }
 
     Card(
         modifier = Modifier
@@ -991,6 +997,44 @@ private fun WorkoutExerciseCard(
                             fontWeight = FontWeight.SemiBold,
                         )
 
+                        if (!isSelectionMode) {
+                            Box {
+                                IconButton(
+                                    onClick = {
+                                        isExerciseMenuExpanded = true
+                                    },
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.MoreVert,
+                                        contentDescription = "Действия с упражнением",
+                                    )
+                                }
+
+                                DropdownMenu(
+                                    expanded = isExerciseMenuExpanded,
+                                    onDismissRequest = {
+                                        isExerciseMenuExpanded = false
+                                    },
+                                ) {
+                                    DropdownMenuItem(
+                                        text = {
+                                            Text(
+                                                if (exercise.executionMethod.isNullOrBlank()) {
+                                                    "Задать способ"
+                                                } else {
+                                                    "Изменить способ"
+                                                }
+                                            )
+                                        },
+                                        onClick = {
+                                            isExerciseMenuExpanded = false
+                                            isExecutionMethodDialogVisible = true
+                                        },
+                                    )
+                                }
+                            }
+                        }
+
                         Icon(
                             imageVector = Icons.Default.Menu,
                             contentDescription = "Перетащить упражнение в секцию",
@@ -1031,6 +1075,15 @@ private fun WorkoutExerciseCard(
                             },
                         )
                     }
+                }
+
+                exercise.executionMethod?.let { method ->
+                    Text(
+                        text = "Способ: $method",
+                        modifier = Modifier.padding(start = 48.dp),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
                 }
 
                 if (exercise.alternatives.isNotEmpty() || exercise.isAlternativeSelected) {
@@ -1161,6 +1214,80 @@ private fun WorkoutExerciseCard(
             },
         )
     }
+
+    if (isExecutionMethodDialogVisible) {
+        ExecutionMethodDialog(
+            initialMethod = exercise.executionMethod,
+            onDismiss = {
+                isExecutionMethodDialogVisible = false
+            },
+            onSave = { method ->
+                isExecutionMethodDialogVisible = false
+                onAction(
+                    WorkoutEditorAction.ExecutionMethodChanged(
+                        workoutExerciseId = exercise.id,
+                        executionMethod = method,
+                    )
+                )
+            },
+        )
+    }
+}
+
+@Composable
+private fun ExecutionMethodDialog(
+    initialMethod: String?,
+    onDismiss: () -> Unit,
+    onSave: (String?) -> Unit,
+) {
+    var method by remember(initialMethod) {
+        mutableStateOf(initialMethod.orEmpty())
+    }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text("Способ выполнения")
+        },
+        text = {
+            OutlinedTextField(
+                value = method,
+                onValueChange = { value ->
+                    method = value
+                },
+                modifier = Modifier.fillMaxWidth(),
+                label = { Text("Способ") },
+                placeholder = { Text("Задайте способ выполнения упражнения") },
+                singleLine = true,
+            )
+        },
+        confirmButton = {
+            TextButton(
+                onClick = {
+                    onSave(method.trim().takeIf { value -> value.isNotBlank() })
+                },
+            ) {
+                Text("Сохранить")
+            }
+        },
+        dismissButton = {
+            Row {
+                if (!initialMethod.isNullOrBlank()) {
+                    TextButton(
+                        onClick = {
+                            onSave(null)
+                        },
+                    ) {
+                        Text("Удалить")
+                    }
+                }
+
+                TextButton(onClick = onDismiss) {
+                    Text("Отмена")
+                }
+            }
+        },
+    )
 }
 
 @Composable

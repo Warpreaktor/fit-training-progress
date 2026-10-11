@@ -629,6 +629,38 @@ class RoomWorkoutRepository @Inject constructor(
         }
     }
 
+    override suspend fun updateWorkoutExerciseExecutionMethod(
+        workoutExerciseId: Long,
+        executionMethod: String?,
+    ) {
+        val now = System.currentTimeMillis()
+        val normalizedMethod = executionMethod
+            ?.trim()
+            ?.takeIf { method -> method.isNotBlank() }
+
+        database.withTransaction {
+            val workoutExercise = workoutExerciseDao
+                .getWorkoutExerciseById(workoutExerciseId)
+                ?: return@withTransaction
+
+            if (workoutExercise.executionMethod == normalizedMethod) {
+                return@withTransaction
+            }
+
+            workoutExerciseDao.updateWorkoutExercise(
+                workoutExercise.copy(
+                    executionMethod = normalizedMethod,
+                    updatedAt = now,
+                )
+            )
+
+            workoutDao.touchWorkout(
+                id = workoutExercise.workoutId,
+                updatedAt = now,
+            )
+        }
+    }
+
     private fun WorkoutExerciseSetEntity.toVariantSetEntity(
         exerciseDefinitionId: Long,
         updatedAt: Long,
@@ -1102,6 +1134,7 @@ class RoomWorkoutRepository @Inject constructor(
             sectionId = sectionId,
             sectionName = sectionName,
             comment = comment,
+            executionMethod = executionMethod,
             isChecked = isChecked,
             sets = sets,
         )
@@ -1439,6 +1472,7 @@ class RoomWorkoutRepository @Inject constructor(
                 workoutExerciseId = workoutExercise.id,
                 exerciseDefinitionId = workoutExercise.selectedExerciseDefinitionId,
                 exerciseNameSnapshot = workoutExercise.exerciseName,
+                executionMethodSnapshot = workoutExercise.executionMethod,
                 createdAt = createdAt,
                 revision = revision,
                 reason = PROGRESS_REASON_PENDING_CHANGES,
@@ -1462,6 +1496,7 @@ class RoomWorkoutRepository @Inject constructor(
             workoutId = workoutExercise.workoutId,
             exerciseDefinitionId = workoutExercise.selectedExerciseDefinitionId,
             exerciseNameSnapshot = workoutExercise.exerciseName,
+            executionMethodSnapshot = workoutExercise.executionMethod,
             createdAt = createdAt,
             reason = PROGRESS_REASON_PENDING_CHANGES,
         )

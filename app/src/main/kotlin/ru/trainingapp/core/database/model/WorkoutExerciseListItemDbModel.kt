@@ -9,6 +9,7 @@ data class WorkoutExerciseListItemDbModel(
     val exerciseName: String,
     val sortOrder: Int,
     val comment: String?,
+    val executionMethod: String?,
     val isChecked: Boolean,
     val checkedAt: Long?,
     val isArchived: Boolean,

@@ -33,6 +33,7 @@ data class WorkoutExerciseEntity(
     val exerciseDefinitionId: Long,
     val sortOrder: Int,
     val comment: String?,
+    val executionMethod: String? = null,
     val isChecked: Boolean = false,
     val checkedAt: Long? = null,
     val isArchived: Boolean = false,

@@ -23,6 +23,11 @@ sealed interface WorkoutEditorAction {
         val exerciseDefinitionId: Long,
     ) : WorkoutEditorAction
 
+    data class ExecutionMethodChanged(
+        val workoutExerciseId: Long,
+        val executionMethod: String?,
+    ) : WorkoutEditorAction
+
     data class ArchiveExerciseClick(
         val workoutExerciseId: Long,
     ) : WorkoutEditorAction

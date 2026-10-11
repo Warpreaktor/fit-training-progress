@@ -206,6 +206,14 @@ private fun WorkoutExerciseProgressCard(
                         style = MaterialTheme.typography.titleMedium,
                     )
 
+                    exercise.executionMethod?.let { method ->
+                        Text(
+                            text = "Способ: $method",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+
                     WorkoutProgressSeriesLegend(series = exercise.series)
                 }
 

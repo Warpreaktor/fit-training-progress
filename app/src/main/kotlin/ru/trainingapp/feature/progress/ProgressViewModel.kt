@@ -72,7 +72,9 @@ private fun List<WorkoutExerciseProgressPoint>.toUiState(): ProgressUiState {
     }
 
     return ProgressUiState(
-        title = chartData.exerciseName,
+        title = chartData.executionMethod
+            ?.let { method -> "${chartData.exerciseName} • $method" }
+            ?: chartData.exerciseName,
         isLoading = false,
         summaryValue = chartData.latestResultLabel,
         series = chartData.series,

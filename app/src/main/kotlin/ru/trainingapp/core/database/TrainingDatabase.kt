@@ -47,7 +47,7 @@ import ru.trainingapp.core.database.entity.WorkoutTagCrossRefEntity
         ExerciseDefinitionAlternativeCrossRefEntity::class,
         ExerciseImageEntity::class,
     ],
-    version = 8,
+    version = 9,
     exportSchema = true
 )
 @TypeConverters(DatabaseConverters::class)
