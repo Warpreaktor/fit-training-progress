@@ -14,6 +14,7 @@ import ru.trainingapp.core.data.exportimport.dto.TRAINING_PACK_EXPORT_TYPE_WORKO
 import ru.trainingapp.core.data.exportimport.dto.TrainingPackDto
 import ru.trainingapp.core.database.dao.ExerciseDefinitionDao
 import ru.trainingapp.core.database.dao.ExerciseImageDao
+import ru.trainingapp.core.database.dao.ExerciseMuscleDao
 import ru.trainingapp.core.database.dao.TagDao
 import ru.trainingapp.core.database.dao.WorkoutDao
 import ru.trainingapp.core.database.dao.WorkoutExerciseDao
@@ -35,6 +36,7 @@ class RoomTrainingPackRepository @Inject constructor(
     private val exerciseDefinitionDao: ExerciseDefinitionDao,
     private val tagDao: TagDao,
     private val exerciseImageDao: ExerciseImageDao,
+    private val exerciseMuscleDao: ExerciseMuscleDao,
     private val workoutDao: WorkoutDao,
     private val workoutExerciseDao: WorkoutExerciseDao,
     private val workoutExerciseSetDao: WorkoutExerciseSetDao,
@@ -280,6 +282,8 @@ class RoomTrainingPackRepository @Inject constructor(
             name = exercise.name,
             description = exercise.description,
             tagRefs = tags.mapNotNull { tag -> tagRefsById[tag.id] },
+            muscleCodes = exerciseMuscleDao
+                .getMuscleCodesByExerciseDefinitionId(exercise.id),
             images = images,
         )
     }
@@ -610,6 +614,11 @@ class RoomTrainingPackRepository @Inject constructor(
             tagDao.replaceExerciseDefinitionTags(
                 exerciseDefinitionId = exerciseId,
                 tagIds = tagIds,
+            )
+
+            exerciseMuscleDao.replaceMuscleCodes(
+                exerciseDefinitionId = exerciseId,
+                muscleCodes = exerciseDto.muscleCodes.toSet(),
             )
 
             createdImages += importExerciseImages(

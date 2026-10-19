@@ -20,6 +20,7 @@ data class ExerciseDefinition(
     val description: String,
     val tags: List<Tag> = emptyList(),
     val alternatives: List<ExerciseDefinitionAlternative> = emptyList(),
+    val muscles: List<MuscleGroup> = emptyList(),
     val images: List<ExerciseImage> = emptyList(),
 )
 

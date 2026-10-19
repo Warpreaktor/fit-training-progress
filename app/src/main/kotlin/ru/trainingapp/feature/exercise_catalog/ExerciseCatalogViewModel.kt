@@ -20,6 +20,7 @@ import ru.trainingapp.core.domain.exercise.CreateExerciseDefinitionUseCase
 import ru.trainingapp.core.domain.exercise.DeleteExerciseImageUseCase
 import ru.trainingapp.core.domain.exercise.ObserveExerciseDefinitionsUseCase
 import ru.trainingapp.core.domain.exercise.ReplaceExerciseDefinitionAlternativesUseCase
+import ru.trainingapp.core.domain.exercise.ReplaceExerciseDefinitionMusclesUseCase
 import ru.trainingapp.core.domain.exercise.ReplaceExerciseDefinitionTagsUseCase
 import ru.trainingapp.core.domain.exercise.SetExerciseCoverImageUseCase
 import ru.trainingapp.core.domain.exercise.UpdateExerciseDefinitionUseCase
@@ -33,6 +34,7 @@ import ru.trainingapp.core.domain.workout.RemoveExerciseFromWorkoutUseCase
 import ru.trainingapp.core.domain.tag.CreateTagUseCase
 import ru.trainingapp.core.domain.tag.ObserveTagsUseCase
 import ru.trainingapp.core.model.ExerciseDefinition
+import ru.trainingapp.core.model.MuscleGroup
 import ru.trainingapp.core.model.Tag
 import ru.trainingapp.core.model.Workout
 import javax.inject.Inject
@@ -50,6 +52,7 @@ class ExerciseCatalogViewModel @Inject constructor(
     private val createTagUseCase: CreateTagUseCase,
     private val replaceExerciseDefinitionTagsUseCase: ReplaceExerciseDefinitionTagsUseCase,
     private val replaceExerciseDefinitionAlternativesUseCase: ReplaceExerciseDefinitionAlternativesUseCase,
+    private val replaceExerciseDefinitionMusclesUseCase: ReplaceExerciseDefinitionMusclesUseCase,
     private val addExerciseImagesUseCase: AddExerciseImagesUseCase,
     private val setExerciseCoverImageUseCase: SetExerciseCoverImageUseCase,
     private val deleteExerciseImageUseCase: DeleteExerciseImageUseCase,
@@ -66,6 +69,8 @@ class ExerciseCatalogViewModel @Inject constructor(
     private val tagEditorState = MutableStateFlow(ExerciseTagEditorState())
 
     private val alternativeEditorState = MutableStateFlow(ExerciseAlternativeEditorState())
+
+    private val muscleEditorState = MutableStateFlow(ExerciseMuscleEditorState())
 
     private var imagePickerExerciseDefinitionId: Long? = null
 
@@ -117,6 +122,8 @@ class ExerciseCatalogViewModel @Inject constructor(
                     tagEditor = tagEditor,
                     alternativeEditor = alternativeEditor,
                 )
+            }.combine(muscleEditorState) { combinedState, muscleEditor ->
+                combinedState.copy(muscleEditor = muscleEditor)
             },
             selectedFilterTagIds,
             imageViewerState,
@@ -140,6 +147,7 @@ class ExerciseCatalogViewModel @Inject constructor(
                 editor = combinedState.editor,
                 tagEditor = combinedState.tagEditor,
                 alternativeEditor = combinedState.alternativeEditor,
+                muscleEditor = combinedState.muscleEditor,
                 imageViewer = imageViewer,
                 transfer = transfer,
                 workoutMembership = workoutMembership,
@@ -360,6 +368,45 @@ class ExerciseCatalogViewModel @Inject constructor(
         alternativeEditorState.value = ExerciseAlternativeEditorState()
     }
 
+    fun onEditExerciseMusclesClick(exercise: ExerciseDefinition) {
+        muscleEditorState.value = ExerciseMuscleEditorState(
+            isVisible = true,
+            exerciseDefinitionId = exercise.id,
+            exerciseName = exercise.name,
+            selectedMuscleGroups = exercise.muscles.toSet(),
+        )
+    }
+
+    fun onDismissMuscleEditor() {
+        muscleEditorState.value = ExerciseMuscleEditorState()
+    }
+
+    fun onToggleMuscleSelection(muscleGroup: MuscleGroup) {
+        val current = muscleEditorState.value
+        val selected = current.selectedMuscleGroups
+
+        muscleEditorState.value = current.copy(
+            selectedMuscleGroups = if (muscleGroup in selected) {
+                selected - muscleGroup
+            } else {
+                selected + muscleGroup
+            },
+        )
+    }
+
+    fun onSaveExerciseMusclesClick() {
+        val current = muscleEditorState.value
+
+        viewModelScope.launch {
+            replaceExerciseDefinitionMusclesUseCase(
+                exerciseDefinitionId = current.exerciseDefinitionId,
+                muscleGroups = current.selectedMuscleGroups,
+            )
+
+            muscleEditorState.value = ExerciseMuscleEditorState()
+        }
+    }
+
     fun onToggleAlternativeSelection(alternativeExerciseDefinitionId: Long) {
         val current = alternativeEditorState.value
 
@@ -551,6 +598,7 @@ private data class ExerciseCatalogCombinedState(
     val editor: ExerciseEditorState,
     val tagEditor: ExerciseTagEditorState,
     val alternativeEditor: ExerciseAlternativeEditorState,
+    val muscleEditor: ExerciseMuscleEditorState = ExerciseMuscleEditorState(),
 )
 
 data class ExerciseCatalogUiState(
@@ -561,6 +609,7 @@ data class ExerciseCatalogUiState(
     val editor: ExerciseEditorState = ExerciseEditorState(),
     val tagEditor: ExerciseTagEditorState = ExerciseTagEditorState(),
     val alternativeEditor: ExerciseAlternativeEditorState = ExerciseAlternativeEditorState(),
+    val muscleEditor: ExerciseMuscleEditorState = ExerciseMuscleEditorState(),
     val imageViewer: ExerciseImageViewerState = ExerciseImageViewerState(),
     val transfer: ExerciseTransferState = ExerciseTransferState(),
     val workoutMembership: ExerciseWorkoutMembershipState = ExerciseWorkoutMembershipState(),
@@ -592,6 +641,13 @@ data class ExerciseAlternativeEditorState(
     val exerciseDefinitionId: Long = 0L,
     val exerciseName: String = "",
     val selectedAlternativeExerciseDefinitionIds: Set<Long> = emptySet(),
+)
+
+data class ExerciseMuscleEditorState(
+    val isVisible: Boolean = false,
+    val exerciseDefinitionId: Long = 0L,
+    val exerciseName: String = "",
+    val selectedMuscleGroups: Set<MuscleGroup> = emptySet(),
 )
 
 data class ExerciseWorkoutMembershipState(

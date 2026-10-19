@@ -59,6 +59,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
 import ru.trainingapp.core.model.ExerciseDefinition
 import ru.trainingapp.core.model.ExerciseImage
+import ru.trainingapp.core.model.MuscleGroup
 import ru.trainingapp.core.model.Tag
 
 @Composable
@@ -110,9 +111,13 @@ fun ExerciseCatalogRoute(
         onCreateTagClick = viewModel::onCreateTagClick,
         onSaveExerciseTagsClick = viewModel::onSaveExerciseTagsClick,
         onEditExerciseAlternativesClick = viewModel::onEditExerciseAlternativesClick,
+        onEditExerciseMusclesClick = viewModel::onEditExerciseMusclesClick,
         onDismissAlternativeEditor = viewModel::onDismissAlternativeEditor,
         onToggleAlternativeSelection = viewModel::onToggleAlternativeSelection,
         onSaveExerciseAlternativesClick = viewModel::onSaveExerciseAlternativesClick,
+        onDismissMuscleEditor = viewModel::onDismissMuscleEditor,
+        onToggleMuscleSelection = viewModel::onToggleMuscleSelection,
+        onSaveExerciseMusclesClick = viewModel::onSaveExerciseMusclesClick,
         onAddImagesClick = { exercise, reopenViewerAfterSelection ->
             viewModel.onPrepareAddImagesClick(
                 exercise = exercise,
@@ -166,9 +171,13 @@ fun ExerciseCatalogScreen(
     onCreateTagClick: () -> Unit,
     onSaveExerciseTagsClick: () -> Unit,
     onEditExerciseAlternativesClick: (ExerciseDefinition) -> Unit,
+    onEditExerciseMusclesClick: (ExerciseDefinition) -> Unit,
     onDismissAlternativeEditor: () -> Unit,
     onToggleAlternativeSelection: (Long) -> Unit,
     onSaveExerciseAlternativesClick: () -> Unit,
+    onDismissMuscleEditor: () -> Unit,
+    onToggleMuscleSelection: (MuscleGroup) -> Unit,
+    onSaveExerciseMusclesClick: () -> Unit,
     onAddImagesClick: (ExerciseDefinition, Boolean) -> Unit,
     onOpenImageViewer: (Long) -> Unit,
     onDismissImageViewer: () -> Unit,
@@ -281,6 +290,7 @@ fun ExerciseCatalogScreen(
                             onWorkoutsClick = { onEditExerciseWorkoutsClick(exercise.id) },
                             onEditTagsClick = { onEditExerciseTagsClick(exercise) },
                             onEditAlternativesClick = { onEditExerciseAlternativesClick(exercise) },
+                            onEditMusclesClick = { onEditExerciseMusclesClick(exercise) },
                             onArchiveClick = { onArchiveExerciseClick(exercise.id) },
                             onExportClick = { onExportExerciseClick(exercise) },
                             onImportClick = onImportExerciseClick,
@@ -347,6 +357,15 @@ fun ExerciseCatalogScreen(
             onWorkoutsClick = {
                 uiState.editor.exerciseId?.let(onEditExerciseWorkoutsClick)
             },
+            onMusclesClick = {
+                val exerciseId = uiState.editor.exerciseId
+
+                if (exerciseId != null) {
+                    uiState.allExercises
+                        .firstOrNull { exercise -> exercise.id == exerciseId }
+                        ?.let(onEditExerciseMusclesClick)
+                }
+            },
             onDismiss = onDismissEditor,
             onSave = onSaveExerciseClick,
         )
@@ -373,6 +392,15 @@ fun ExerciseCatalogScreen(
         )
     }
 
+    if (uiState.muscleEditor.isVisible) {
+        ExerciseMusclesDialog(
+            muscleEditor = uiState.muscleEditor,
+            onToggleMuscle = onToggleMuscleSelection,
+            onDismiss = onDismissMuscleEditor,
+            onSave = onSaveExerciseMusclesClick,
+        )
+    }
+
     if (uiState.workoutMembership.isVisible) {
         ExerciseWorkoutMembershipDialog(
             state = uiState.workoutMembership,
@@ -389,6 +417,7 @@ private fun ExerciseCatalogItem(
     onWorkoutsClick: () -> Unit,
     onEditTagsClick: () -> Unit,
     onEditAlternativesClick: () -> Unit,
+    onEditMusclesClick: () -> Unit,
     onArchiveClick: () -> Unit,
     onExportClick: () -> Unit,
     onImportClick: () -> Unit,
@@ -447,6 +476,14 @@ private fun ExerciseCatalogItem(
                         )
 
                         DropdownMenuItem(
+                            text = { Text("Мышцы") },
+                            onClick = {
+                                isMenuExpanded = false
+                                onEditMusclesClick()
+                            },
+                        )
+
+                        DropdownMenuItem(
                             text = { Text("Альтернативы") },
                             onClick = {
                                 isMenuExpanded = false
@@ -498,6 +535,10 @@ private fun ExerciseCatalogItem(
 
             if (exercise.tags.isNotEmpty()) {
                 TagChipsRow(tags = exercise.tags)
+            }
+
+            if (exercise.muscles.isNotEmpty()) {
+                MuscleChipsRow(muscles = exercise.muscles)
             }
 
             if (exercise.alternatives.isNotEmpty()) {
@@ -575,6 +616,25 @@ private fun TagChipsRow(
             AssistChip(
                 onClick = {},
                 label = { Text("#${tag.name}") },
+            )
+        }
+    }
+}
+
+@Composable
+private fun MuscleChipsRow(
+    muscles: List<MuscleGroup>,
+) {
+    LazyRow(
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        items(
+            items = muscles,
+            key = { muscleGroup -> muscleGroup.code },
+        ) { muscleGroup ->
+            AssistChip(
+                onClick = {},
+                label = { Text(muscleGroup.displayName) },
             )
         }
     }
@@ -668,6 +728,7 @@ private fun ExerciseEditorDialog(
     onNameChange: (String) -> Unit,
     onDescriptionChange: (String) -> Unit,
     onWorkoutsClick: () -> Unit,
+    onMusclesClick: () -> Unit,
     onDismiss: () -> Unit,
     onSave: () -> Unit,
 ) {
@@ -707,11 +768,71 @@ private fun ExerciseEditorDialog(
                 )
 
                 if (editor.isEditing) {
-                    TextButton(
-                        onClick = onWorkoutsClick,
-                        modifier = Modifier.align(Alignment.End),
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.End,
                     ) {
-                        Text("Тренировки")
+                        TextButton(onClick = onMusclesClick) {
+                            Text("Мышцы")
+                        }
+
+                        TextButton(onClick = onWorkoutsClick) {
+                            Text("Тренировки")
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onSave) {
+                Text("Сохранить")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Отмена")
+            }
+        },
+    )
+}
+
+@Composable
+private fun ExerciseMusclesDialog(
+    muscleEditor: ExerciseMuscleEditorState,
+    onToggleMuscle: (MuscleGroup) -> Unit,
+    onDismiss: () -> Unit,
+    onSave: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text("Мышцы: ${muscleEditor.exerciseName}")
+        },
+        text = {
+            LazyColumn(
+                modifier = Modifier.heightIn(max = 360.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                items(
+                    items = MuscleGroup.entries,
+                    key = { muscleGroup -> muscleGroup.code },
+                ) { muscleGroup ->
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { onToggleMuscle(muscleGroup) },
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Checkbox(
+                            checked = muscleGroup in muscleEditor.selectedMuscleGroups,
+                            onCheckedChange = null,
+                        )
+
+                        Text(
+                            text = muscleGroup.displayName,
+                            modifier = Modifier.weight(1f),
+                            style = MaterialTheme.typography.bodyMedium,
+                        )
                     }
                 }
             }

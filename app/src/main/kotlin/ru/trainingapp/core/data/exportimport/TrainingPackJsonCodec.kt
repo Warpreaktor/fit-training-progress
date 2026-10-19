@@ -74,6 +74,7 @@ class TrainingPackJsonCodec @Inject constructor() {
                     name = item.optNullableString("name"),
                     description = item.optNullableString("description"),
                     tagRefs = item.optArray("tagRefs").mapStrings(),
+                    muscleCodes = item.optArray("muscleCodes").mapStrings(),
                     images = item.optArray("images").mapObjects { image, imageIndex ->
                         ExportExerciseImageDto(
                             ref = image.optNullableString("ref"),
@@ -127,6 +128,7 @@ class TrainingPackJsonCodec @Inject constructor() {
             .putNullable("name", name)
             .putNullable("description", description)
             .put("tagRefs", tagRefs.toJsonArray())
+            .put("muscleCodes", muscleCodes.toJsonArray())
             .put(
                 "images",
                 JSONArray().apply {
