@@ -30,7 +30,6 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -190,6 +189,7 @@ fun ExerciseCatalogScreen(
     onWorkoutMembershipChange: (Long, Boolean) -> Unit,
 ) {
     val snackbarHostState = remember { SnackbarHostState() }
+    var isScreenMenuExpanded by remember { mutableStateOf(false) }
 
     LaunchedEffect(uiState.transfer.message) {
         val message = uiState.transfer.message ?: return@LaunchedEffect
@@ -207,16 +207,46 @@ fun ExerciseCatalogScreen(
                         Text("‹", style = MaterialTheme.typography.headlineMedium)
                     }
                 },
+                actions = {
+                    IconButton(
+                        onClick = {
+                            isScreenMenuExpanded = true
+                        },
+                    ) {
+                        Icon(
+                            imageVector = Icons.Outlined.MoreVert,
+                            contentDescription = "Действия со списком упражнений",
+                        )
+                    }
+
+                    DropdownMenu(
+                        expanded = isScreenMenuExpanded,
+                        onDismissRequest = {
+                            isScreenMenuExpanded = false
+                        },
+                    ) {
+                        DropdownMenuItem(
+                            text = { Text("Создать упражнение") },
+                            enabled = !uiState.transfer.isInProgress,
+                            onClick = {
+                                isScreenMenuExpanded = false
+                                onAddExerciseClick()
+                            },
+                        )
+
+                        DropdownMenuItem(
+                            text = { Text("Загрузить упражнение") },
+                            enabled = !uiState.transfer.isInProgress,
+                            onClick = {
+                                isScreenMenuExpanded = false
+                                onImportExerciseClick()
+                            },
+                        )
+                    }
+                },
             )
         },
         snackbarHost = { SnackbarHost(snackbarHostState) },
-        floatingActionButton = {
-            ExtendedFloatingActionButton(
-                onClick = onAddExerciseClick,
-            ) {
-                Text("Добавить")
-            }
-        },
     ) { padding ->
         Column(
             modifier = Modifier
@@ -268,12 +298,6 @@ fun ExerciseCatalogScreen(
                         style = MaterialTheme.typography.bodyMedium,
                     )
 
-                    TextButton(
-                        onClick = onImportExerciseClick,
-                        enabled = !uiState.transfer.isInProgress,
-                    ) {
-                        Text("Загрузить упражнение")
-                    }
                 }
             } else {
                 LazyColumn(
@@ -293,7 +317,6 @@ fun ExerciseCatalogScreen(
                             onEditMusclesClick = { onEditExerciseMusclesClick(exercise) },
                             onArchiveClick = { onArchiveExerciseClick(exercise.id) },
                             onExportClick = { onExportExerciseClick(exercise) },
-                            onImportClick = onImportExerciseClick,
                             onImageClick = {
                                 if (exercise.images.isEmpty()) {
                                     onAddImagesClick(
@@ -420,7 +443,6 @@ private fun ExerciseCatalogItem(
     onEditMusclesClick: () -> Unit,
     onArchiveClick: () -> Unit,
     onExportClick: () -> Unit,
-    onImportClick: () -> Unit,
     onImageClick: () -> Unit,
 ) {
     var isMenuExpanded by remember { mutableStateOf(false) }
@@ -496,14 +518,6 @@ private fun ExerciseCatalogItem(
                             onClick = {
                                 isMenuExpanded = false
                                 onExportClick()
-                            },
-                        )
-
-                        DropdownMenuItem(
-                            text = { Text("Загрузить упражнение") },
-                            onClick = {
-                                isMenuExpanded = false
-                                onImportClick()
                             },
                         )
 
