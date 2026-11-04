@@ -17,6 +17,7 @@ import ru.trainingapp.core.domain.repository.ExerciseDefinitionRepository
 import ru.trainingapp.core.model.ExerciseDefinition
 import ru.trainingapp.core.model.ExerciseDefinitionAlternative
 import ru.trainingapp.core.model.MuscleGroup
+import ru.trainingapp.core.model.MuscleLoadType
 import javax.inject.Inject
 
 class RoomExerciseDefinitionRepository @Inject constructor(
@@ -69,9 +70,8 @@ class RoomExerciseDefinitionRepository @Inject constructor(
                 valueTransform = { image -> image.toDomain() },
             )
 
-            val musclesByExerciseDefinitionId = assets.muscleCrossRefs.groupBy(
+            val muscleRefsByExerciseDefinitionId = assets.muscleCrossRefs.groupBy(
                 keySelector = { crossRef -> crossRef.exerciseDefinitionId },
-                valueTransform = { crossRef -> crossRef.muscleCode },
             )
 
             exerciseEntities.map { exerciseEntity ->
@@ -96,9 +96,19 @@ class RoomExerciseDefinitionRepository @Inject constructor(
                 exerciseEntity.toDomain(
                     tags = exerciseTags,
                     alternatives = alternatives,
-                    muscles = musclesByExerciseDefinitionId[exerciseEntity.id]
+                    muscles = muscleRefsByExerciseDefinitionId[exerciseEntity.id]
                         .orEmpty()
-                        .mapNotNull { muscleCode -> MuscleGroup.fromCode(muscleCode) }
+                        .filter { crossRef ->
+                            MuscleLoadType.fromCode(crossRef.loadType) == MuscleLoadType.PRIMARY
+                        }
+                        .mapNotNull { crossRef -> MuscleGroup.fromCode(crossRef.muscleCode) }
+                        .sortedBy { muscleGroup -> muscleGroup.ordinal },
+                    secondaryMuscles = muscleRefsByExerciseDefinitionId[exerciseEntity.id]
+                        .orEmpty()
+                        .filter { crossRef ->
+                            MuscleLoadType.fromCode(crossRef.loadType) == MuscleLoadType.SECONDARY
+                        }
+                        .mapNotNull { crossRef -> MuscleGroup.fromCode(crossRef.muscleCode) }
                         .sortedBy { muscleGroup -> muscleGroup.ordinal },
                     images = imagesByExerciseDefinitionId[exerciseEntity.id]
                         .orEmpty()
@@ -201,7 +211,8 @@ class RoomExerciseDefinitionRepository @Inject constructor(
 
     override suspend fun replaceExerciseDefinitionMuscles(
         exerciseDefinitionId: Long,
-        muscleGroups: Set<MuscleGroup>,
+        primaryMuscleGroups: Set<MuscleGroup>,
+        secondaryMuscleGroups: Set<MuscleGroup>,
     ) {
         val now = System.currentTimeMillis()
 
@@ -212,7 +223,12 @@ class RoomExerciseDefinitionRepository @Inject constructor(
 
             exerciseMuscleDao.replaceMuscleCodes(
                 exerciseDefinitionId = exerciseDefinitionId,
-                muscleCodes = muscleGroups.map { muscleGroup -> muscleGroup.code }.toSet(),
+                primaryMuscleCodes = primaryMuscleGroups
+                    .map { muscleGroup -> muscleGroup.code }
+                    .toSet(),
+                secondaryMuscleCodes = secondaryMuscleGroups
+                    .map { muscleGroup -> muscleGroup.code }
+                    .toSet(),
             )
 
             exerciseDefinitionDao.updateExerciseDefinition(

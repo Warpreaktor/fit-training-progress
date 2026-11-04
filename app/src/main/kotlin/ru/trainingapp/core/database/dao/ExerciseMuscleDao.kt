@@ -24,14 +24,16 @@ interface ExerciseMuscleDao {
         SELECT muscleCode
         FROM exercise_definition_muscle_cross_refs
         WHERE exerciseDefinitionId = :exerciseDefinitionId
+          AND loadType = :loadType
         ORDER BY muscleCode ASC
         """
     )
     suspend fun getMuscleCodesByExerciseDefinitionId(
         exerciseDefinitionId: Long,
+        loadType: String,
     ): List<String>
 
-    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertMuscleCrossRef(
         entity: ExerciseDefinitionMuscleCrossRefEntity,
     )
@@ -49,21 +51,39 @@ interface ExerciseMuscleDao {
     @Transaction
     suspend fun replaceMuscleCodes(
         exerciseDefinitionId: Long,
-        muscleCodes: Set<String>,
+        primaryMuscleCodes: Set<String>,
+        secondaryMuscleCodes: Set<String>,
     ) {
         deleteMusclesByExerciseDefinitionId(exerciseDefinitionId)
 
-        muscleCodes
+        val normalizedPrimary = primaryMuscleCodes
             .map { muscleCode -> muscleCode.trim() }
             .filter { muscleCode -> muscleCode.isNotBlank() }
-            .distinct()
-            .forEach { muscleCode ->
-                insertMuscleCrossRef(
-                    ExerciseDefinitionMuscleCrossRefEntity(
-                        exerciseDefinitionId = exerciseDefinitionId,
-                        muscleCode = muscleCode,
-                    )
+            .toSet()
+
+        val normalizedSecondary = secondaryMuscleCodes
+            .map { muscleCode -> muscleCode.trim() }
+            .filter { muscleCode -> muscleCode.isNotBlank() }
+            .toSet() - normalizedPrimary
+
+        normalizedPrimary.forEach { muscleCode ->
+            insertMuscleCrossRef(
+                ExerciseDefinitionMuscleCrossRefEntity(
+                    exerciseDefinitionId = exerciseDefinitionId,
+                    muscleCode = muscleCode,
+                    loadType = "PRIMARY",
                 )
-            }
+            )
+        }
+
+        normalizedSecondary.forEach { muscleCode ->
+            insertMuscleCrossRef(
+                ExerciseDefinitionMuscleCrossRefEntity(
+                    exerciseDefinitionId = exerciseDefinitionId,
+                    muscleCode = muscleCode,
+                    loadType = "SECONDARY",
+                )
+            )
+        }
     }
 }

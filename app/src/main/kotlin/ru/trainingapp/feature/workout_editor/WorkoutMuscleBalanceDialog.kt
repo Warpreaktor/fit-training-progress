@@ -97,7 +97,7 @@ fun WorkoutMuscleBalanceDialog(
                                 )
 
                                 Text(
-                                    text = "${item.exerciseCount} из ${balance.totalExercises} упражнений",
+                                    text = "${item.exerciseCount} из ${balance.totalExercises} упражнений • Баллы: ${formatScore(item.score)}",
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
@@ -105,7 +105,7 @@ fun WorkoutMuscleBalanceDialog(
                         }
 
                         Text(
-                            text = "Каждая выбранная мышечная группа учитывается отдельно, поэтому сумма процентов может быть больше 100%.",
+                            text = "Основная нагрузка даёт 1 балл, дополнительная — 0,5. Каждая мышечная группа учитывается отдельно, поэтому сумма процентов может быть больше 100%.",
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
@@ -119,4 +119,13 @@ fun WorkoutMuscleBalanceDialog(
             }
         },
     )
+}
+
+private fun formatScore(score: Float): String {
+    val doubled = (score * 2f).roundToInt()
+    return if (doubled % 2 == 0) {
+        (doubled / 2).toString()
+    } else {
+        "${doubled / 2},5"
+    }
 }

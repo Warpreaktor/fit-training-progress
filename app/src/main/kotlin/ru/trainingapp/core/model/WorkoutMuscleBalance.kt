@@ -12,5 +12,6 @@ data class WorkoutMuscleBalance(
 data class WorkoutMuscleBalanceItem(
     val muscleGroup: MuscleGroup,
     val exerciseCount: Int,
+    val score: Float,
     val share: Float,
 )

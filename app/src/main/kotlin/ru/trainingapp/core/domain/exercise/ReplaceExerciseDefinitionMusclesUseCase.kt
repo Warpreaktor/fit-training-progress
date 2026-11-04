@@ -10,7 +10,8 @@ class ReplaceExerciseDefinitionMusclesUseCase @Inject constructor(
 
     suspend operator fun invoke(
         exerciseDefinitionId: Long,
-        muscleGroups: Set<MuscleGroup>,
+        primaryMuscleGroups: Set<MuscleGroup>,
+        secondaryMuscleGroups: Set<MuscleGroup>,
     ) {
         if (exerciseDefinitionId <= 0L) {
             return
@@ -18,7 +19,8 @@ class ReplaceExerciseDefinitionMusclesUseCase @Inject constructor(
 
         repository.replaceExerciseDefinitionMuscles(
             exerciseDefinitionId = exerciseDefinitionId,
-            muscleGroups = muscleGroups,
+            primaryMuscleGroups = primaryMuscleGroups,
+            secondaryMuscleGroups = secondaryMuscleGroups - primaryMuscleGroups,
         )
     }
 }

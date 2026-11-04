@@ -18,6 +18,7 @@ import ru.trainingapp.core.database.migration.MIGRATION_6_7
 import ru.trainingapp.core.database.migration.MIGRATION_7_8
 import ru.trainingapp.core.database.migration.MIGRATION_8_9
 import ru.trainingapp.core.database.migration.MIGRATION_9_10
+import ru.trainingapp.core.database.migration.MIGRATION_10_11
 import javax.inject.Singleton
 
 @Module
@@ -43,6 +44,7 @@ object DatabaseModule {
             .addMigrations(MIGRATION_7_8)
             .addMigrations(MIGRATION_8_9)
             .addMigrations(MIGRATION_9_10)
+            .addMigrations(MIGRATION_10_11)
             .build()
     }
 

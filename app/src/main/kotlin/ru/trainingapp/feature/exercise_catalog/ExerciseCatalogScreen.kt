@@ -115,7 +115,8 @@ fun ExerciseCatalogRoute(
         onToggleAlternativeSelection = viewModel::onToggleAlternativeSelection,
         onSaveExerciseAlternativesClick = viewModel::onSaveExerciseAlternativesClick,
         onDismissMuscleEditor = viewModel::onDismissMuscleEditor,
-        onToggleMuscleSelection = viewModel::onToggleMuscleSelection,
+        onTogglePrimaryMuscleSelection = viewModel::onTogglePrimaryMuscleSelection,
+        onToggleSecondaryMuscleSelection = viewModel::onToggleSecondaryMuscleSelection,
         onSaveExerciseMusclesClick = viewModel::onSaveExerciseMusclesClick,
         onAddImagesClick = { exercise, reopenViewerAfterSelection ->
             viewModel.onPrepareAddImagesClick(
@@ -175,7 +176,8 @@ fun ExerciseCatalogScreen(
     onToggleAlternativeSelection: (Long) -> Unit,
     onSaveExerciseAlternativesClick: () -> Unit,
     onDismissMuscleEditor: () -> Unit,
-    onToggleMuscleSelection: (MuscleGroup) -> Unit,
+    onTogglePrimaryMuscleSelection: (MuscleGroup) -> Unit,
+    onToggleSecondaryMuscleSelection: (MuscleGroup) -> Unit,
     onSaveExerciseMusclesClick: () -> Unit,
     onAddImagesClick: (ExerciseDefinition, Boolean) -> Unit,
     onOpenImageViewer: (Long) -> Unit,
@@ -418,7 +420,8 @@ fun ExerciseCatalogScreen(
     if (uiState.muscleEditor.isVisible) {
         ExerciseMusclesDialog(
             muscleEditor = uiState.muscleEditor,
-            onToggleMuscle = onToggleMuscleSelection,
+            onTogglePrimaryMuscle = onTogglePrimaryMuscleSelection,
+            onToggleSecondaryMuscle = onToggleSecondaryMuscleSelection,
             onDismiss = onDismissMuscleEditor,
             onSave = onSaveExerciseMusclesClick,
         )
@@ -552,7 +555,17 @@ private fun ExerciseCatalogItem(
             }
 
             if (exercise.muscles.isNotEmpty()) {
-                MuscleChipsRow(muscles = exercise.muscles)
+                MuscleChipsRow(
+                    label = "Основная нагрузка",
+                    muscles = exercise.muscles,
+                )
+            }
+
+            if (exercise.secondaryMuscles.isNotEmpty()) {
+                MuscleChipsRow(
+                    label = "Доп. нагрузка",
+                    muscles = exercise.secondaryMuscles,
+                )
             }
 
             if (exercise.alternatives.isNotEmpty()) {
@@ -637,19 +650,30 @@ private fun TagChipsRow(
 
 @Composable
 private fun MuscleChipsRow(
+    label: String,
     muscles: List<MuscleGroup>,
 ) {
-    LazyRow(
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    Column(
+        verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
-        items(
-            items = muscles,
-            key = { muscleGroup -> muscleGroup.code },
-        ) { muscleGroup ->
-            AssistChip(
-                onClick = {},
-                label = { Text(muscleGroup.displayName) },
-            )
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+
+        LazyRow(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            items(
+                items = muscles,
+                key = { muscleGroup -> muscleGroup.code },
+            ) { muscleGroup ->
+                AssistChip(
+                    onClick = {},
+                    label = { Text(muscleGroup.displayName) },
+                )
+            }
         }
     }
 }
@@ -813,7 +837,8 @@ private fun ExerciseEditorDialog(
 @Composable
 private fun ExerciseMusclesDialog(
     muscleEditor: ExerciseMuscleEditorState,
-    onToggleMuscle: (MuscleGroup) -> Unit,
+    onTogglePrimaryMuscle: (MuscleGroup) -> Unit,
+    onToggleSecondaryMuscle: (MuscleGroup) -> Unit,
     onDismiss: () -> Unit,
     onSave: () -> Unit,
 ) {
@@ -823,30 +848,70 @@ private fun ExerciseMusclesDialog(
             Text("Мышцы: ${muscleEditor.exerciseName}")
         },
         text = {
-            LazyColumn(
-                modifier = Modifier.heightIn(max = 360.dp),
-                verticalArrangement = Arrangement.spacedBy(4.dp),
+            Column(
+                verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                items(
-                    items = MuscleGroup.entries,
-                    key = { muscleGroup -> muscleGroup.code },
-                ) { muscleGroup ->
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable { onToggleMuscle(muscleGroup) },
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Checkbox(
-                            checked = muscleGroup in muscleEditor.selectedMuscleGroups,
-                            onCheckedChange = null,
-                        )
+                Text(
+                    text = "Основная нагрузка учитывается за 1 балл, дополнительная — за 0,5 балла.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
 
-                        Text(
-                            text = muscleGroup.displayName,
-                            modifier = Modifier.weight(1f),
-                            style = MaterialTheme.typography.bodyMedium,
-                        )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Spacer(modifier = Modifier.weight(1f))
+                    Text(
+                        text = "Основная",
+                        modifier = Modifier.width(82.dp),
+                        style = MaterialTheme.typography.labelSmall,
+                    )
+                    Text(
+                        text = "Доп.",
+                        modifier = Modifier.width(60.dp),
+                        style = MaterialTheme.typography.labelSmall,
+                    )
+                }
+
+                LazyColumn(
+                    modifier = Modifier.heightIn(max = 360.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                ) {
+                    items(
+                        items = MuscleGroup.entries,
+                        key = { muscleGroup -> muscleGroup.code },
+                    ) { muscleGroup ->
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Text(
+                                text = muscleGroup.displayName,
+                                modifier = Modifier.weight(1f),
+                                style = MaterialTheme.typography.bodyMedium,
+                            )
+
+                            Box(
+                                modifier = Modifier.width(82.dp),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                Checkbox(
+                                    checked = muscleGroup in muscleEditor.selectedPrimaryMuscleGroups,
+                                    onCheckedChange = { onTogglePrimaryMuscle(muscleGroup) },
+                                )
+                            }
+
+                            Box(
+                                modifier = Modifier.width(60.dp),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                Checkbox(
+                                    checked = muscleGroup in muscleEditor.selectedSecondaryMuscleGroups,
+                                    onCheckedChange = { onToggleSecondaryMuscle(muscleGroup) },
+                                )
+                            }
+                        }
                     }
                 }
             }

@@ -30,6 +30,7 @@ import ru.trainingapp.core.domain.repository.TrainingPackRepository
 import ru.trainingapp.core.model.TrainingPackImportResult
 import ru.trainingapp.core.model.WeightUnit
 import ru.trainingapp.core.model.WorkoutExerciseSetLoadType
+import ru.trainingapp.core.model.MuscleLoadType
 import javax.inject.Inject
 
 class RoomTrainingPackRepository @Inject constructor(
@@ -283,7 +284,15 @@ class RoomTrainingPackRepository @Inject constructor(
             description = exercise.description,
             tagRefs = tags.mapNotNull { tag -> tagRefsById[tag.id] },
             muscleCodes = exerciseMuscleDao
-                .getMuscleCodesByExerciseDefinitionId(exercise.id),
+                .getMuscleCodesByExerciseDefinitionId(
+                    exerciseDefinitionId = exercise.id,
+                    loadType = MuscleLoadType.PRIMARY.code,
+                ),
+            secondaryMuscleCodes = exerciseMuscleDao
+                .getMuscleCodesByExerciseDefinitionId(
+                    exerciseDefinitionId = exercise.id,
+                    loadType = MuscleLoadType.SECONDARY.code,
+                ),
             images = images,
         )
     }
@@ -618,7 +627,8 @@ class RoomTrainingPackRepository @Inject constructor(
 
             exerciseMuscleDao.replaceMuscleCodes(
                 exerciseDefinitionId = exerciseId,
-                muscleCodes = exerciseDto.muscleCodes.toSet(),
+                primaryMuscleCodes = exerciseDto.muscleCodes.toSet(),
+                secondaryMuscleCodes = exerciseDto.secondaryMuscleCodes.toSet(),
             )
 
             createdImages += importExerciseImages(

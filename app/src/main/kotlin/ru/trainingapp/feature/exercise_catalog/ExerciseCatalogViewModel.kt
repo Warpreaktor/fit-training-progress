@@ -373,7 +373,8 @@ class ExerciseCatalogViewModel @Inject constructor(
             isVisible = true,
             exerciseDefinitionId = exercise.id,
             exerciseName = exercise.name,
-            selectedMuscleGroups = exercise.muscles.toSet(),
+            selectedPrimaryMuscleGroups = exercise.muscles.toSet(),
+            selectedSecondaryMuscleGroups = exercise.secondaryMuscles.toSet(),
         )
     }
 
@@ -381,15 +382,40 @@ class ExerciseCatalogViewModel @Inject constructor(
         muscleEditorState.value = ExerciseMuscleEditorState()
     }
 
-    fun onToggleMuscleSelection(muscleGroup: MuscleGroup) {
+    fun onTogglePrimaryMuscleSelection(muscleGroup: MuscleGroup) {
         val current = muscleEditorState.value
-        val selected = current.selectedMuscleGroups
+        val selected = current.selectedPrimaryMuscleGroups
+        val isSelected = muscleGroup in selected
 
         muscleEditorState.value = current.copy(
-            selectedMuscleGroups = if (muscleGroup in selected) {
+            selectedPrimaryMuscleGroups = if (isSelected) {
                 selected - muscleGroup
             } else {
                 selected + muscleGroup
+            },
+            selectedSecondaryMuscleGroups = if (isSelected) {
+                current.selectedSecondaryMuscleGroups
+            } else {
+                current.selectedSecondaryMuscleGroups - muscleGroup
+            },
+        )
+    }
+
+    fun onToggleSecondaryMuscleSelection(muscleGroup: MuscleGroup) {
+        val current = muscleEditorState.value
+        val selected = current.selectedSecondaryMuscleGroups
+        val isSelected = muscleGroup in selected
+
+        muscleEditorState.value = current.copy(
+            selectedSecondaryMuscleGroups = if (isSelected) {
+                selected - muscleGroup
+            } else {
+                selected + muscleGroup
+            },
+            selectedPrimaryMuscleGroups = if (isSelected) {
+                current.selectedPrimaryMuscleGroups
+            } else {
+                current.selectedPrimaryMuscleGroups - muscleGroup
             },
         )
     }
@@ -400,7 +426,8 @@ class ExerciseCatalogViewModel @Inject constructor(
         viewModelScope.launch {
             replaceExerciseDefinitionMusclesUseCase(
                 exerciseDefinitionId = current.exerciseDefinitionId,
-                muscleGroups = current.selectedMuscleGroups,
+                primaryMuscleGroups = current.selectedPrimaryMuscleGroups,
+                secondaryMuscleGroups = current.selectedSecondaryMuscleGroups,
             )
 
             muscleEditorState.value = ExerciseMuscleEditorState()
@@ -647,7 +674,8 @@ data class ExerciseMuscleEditorState(
     val isVisible: Boolean = false,
     val exerciseDefinitionId: Long = 0L,
     val exerciseName: String = "",
-    val selectedMuscleGroups: Set<MuscleGroup> = emptySet(),
+    val selectedPrimaryMuscleGroups: Set<MuscleGroup> = emptySet(),
+    val selectedSecondaryMuscleGroups: Set<MuscleGroup> = emptySet(),
 )
 
 data class ExerciseWorkoutMembershipState(

@@ -33,7 +33,8 @@ interface ExerciseDefinitionRepository {
 
     suspend fun replaceExerciseDefinitionMuscles(
         exerciseDefinitionId: Long,
-        muscleGroups: Set<MuscleGroup>,
+        primaryMuscleGroups: Set<MuscleGroup>,
+        secondaryMuscleGroups: Set<MuscleGroup>,
     )
 
     suspend fun addExerciseImages(

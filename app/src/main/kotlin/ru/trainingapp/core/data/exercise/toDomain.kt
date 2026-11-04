@@ -11,6 +11,7 @@ fun ExerciseDefinitionEntity.toDomain(
     tags: List<Tag> = emptyList(),
     alternatives: List<ExerciseDefinitionAlternative> = emptyList(),
     muscles: List<MuscleGroup> = emptyList(),
+    secondaryMuscles: List<MuscleGroup> = emptyList(),
     images: List<ExerciseImage> = emptyList(),
 ): ExerciseDefinition {
     return ExerciseDefinition(
@@ -20,6 +21,7 @@ fun ExerciseDefinitionEntity.toDomain(
         tags = tags,
         alternatives = alternatives,
         muscles = muscles,
+        secondaryMuscles = secondaryMuscles,
         images = images,
     )
 }

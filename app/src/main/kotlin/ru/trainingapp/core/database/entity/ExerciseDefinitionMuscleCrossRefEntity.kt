@@ -22,4 +22,5 @@ import androidx.room.Index
 data class ExerciseDefinitionMuscleCrossRefEntity(
     val exerciseDefinitionId: Long,
     val muscleCode: String,
+    val loadType: String = "PRIMARY",
 )
