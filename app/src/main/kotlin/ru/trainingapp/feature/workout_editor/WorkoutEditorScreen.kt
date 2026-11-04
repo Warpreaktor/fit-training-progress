@@ -150,6 +150,12 @@ private fun WorkoutEditorScreen(
     var isCreateSectionDialogVisible by rememberSaveable {
         mutableStateOf(false)
     }
+    var isWorkoutMenuExpanded by rememberSaveable {
+        mutableStateOf(false)
+    }
+    var isMuscleBalanceDialogVisible by rememberSaveable {
+        mutableStateOf(false)
+    }
 
     val selectedIds = selectedExerciseIds.toSet()
     val isSelectionMode = selectedExerciseIds.isNotEmpty()
@@ -242,6 +248,34 @@ private fun WorkoutEditorScreen(
                         ) {
                             Text("Снять галки")
                         }
+
+                        Box {
+                            IconButton(
+                                onClick = {
+                                    isWorkoutMenuExpanded = true
+                                },
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.MoreVert,
+                                    contentDescription = "Меню тренировки",
+                                )
+                            }
+
+                            DropdownMenu(
+                                expanded = isWorkoutMenuExpanded,
+                                onDismissRequest = {
+                                    isWorkoutMenuExpanded = false
+                                },
+                            ) {
+                                DropdownMenuItem(
+                                    text = { Text("Баланс нагрузки") },
+                                    onClick = {
+                                        isWorkoutMenuExpanded = false
+                                        isMuscleBalanceDialogVisible = true
+                                    },
+                                )
+                            }
+                        }
                     }
                 },
             )
@@ -318,6 +352,15 @@ private fun WorkoutEditorScreen(
                             exerciseDefinitionId = exerciseDefinitionId,
                         )
                     )
+                },
+            )
+        }
+
+        if (isMuscleBalanceDialogVisible) {
+            WorkoutMuscleBalanceDialog(
+                balance = uiState.muscleBalance,
+                onDismiss = {
+                    isMuscleBalanceDialogVisible = false
                 },
             )
         }

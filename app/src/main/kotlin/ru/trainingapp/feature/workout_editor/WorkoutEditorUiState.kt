@@ -1,6 +1,7 @@
 package ru.trainingapp.feature.workout_editor
 
 import ru.trainingapp.core.model.ExerciseDefinition
+import ru.trainingapp.core.model.WorkoutMuscleBalance
 
 data class WorkoutEditorUiState(
     val workoutId: Long,
@@ -15,5 +16,10 @@ data class WorkoutEditorUiState(
     val timerStartedAt: Long? = null,
     val timerElapsedMillis: Long = 0L,
     val timerIsFinished: Boolean = false,
+    val muscleBalance: WorkoutMuscleBalance = WorkoutMuscleBalance(
+        totalExercises = 0,
+        exercisesWithMuscles = 0,
+        items = emptyList(),
+    ),
     val errorMessage: String? = null,
 )

@@ -16,6 +16,7 @@ import ru.trainingapp.core.domain.exercise.ObserveExerciseDefinitionsUseCase
 import ru.trainingapp.core.domain.workout.AddExerciseToWorkoutUseCase
 import ru.trainingapp.core.domain.workout.AddWorkoutExerciseSetUseCase
 import ru.trainingapp.core.domain.workout.ArchiveWorkoutExerciseUseCase
+import ru.trainingapp.core.domain.workout.CalculateWorkoutMuscleBalanceUseCase
 import ru.trainingapp.core.domain.workout.CommitPendingProgressUseCase
 import ru.trainingapp.core.domain.workout.MoveWorkoutExerciseUseCase
 import ru.trainingapp.core.domain.workout.ObserveWorkoutEditorUseCase
@@ -47,6 +48,7 @@ class WorkoutEditorViewModel @Inject constructor(
     private val selectWorkoutExerciseVariantUseCase: SelectWorkoutExerciseVariantUseCase,
     private val updateWorkoutExerciseExecutionMethodUseCase: UpdateWorkoutExerciseExecutionMethodUseCase,
     private val commitPendingProgressUseCase: CommitPendingProgressUseCase,
+    private val calculateWorkoutMuscleBalanceUseCase: CalculateWorkoutMuscleBalanceUseCase,
     private val workoutTimerUseCase: WorkoutTimerUseCase,
     private val workoutSectionUseCase: WorkoutSectionUseCase,
 ) : ViewModel() {
@@ -117,6 +119,10 @@ class WorkoutEditorViewModel @Inject constructor(
             timerStartedAt = editorData?.workout?.timerStartedAt,
             timerElapsedMillis = editorData?.workout?.timerElapsedMillis ?: 0L,
             timerIsFinished = editorData?.workout?.timerIsFinished ?: false,
+            muscleBalance = calculateWorkoutMuscleBalanceUseCase(
+                exercises = editorData?.exercises.orEmpty(),
+                exerciseDefinitions = exercisePickerState.allExercises,
+            ),
             errorMessage = error,
         )
     }.stateIn(
