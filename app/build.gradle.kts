@@ -59,7 +59,7 @@ dependencies {
     implementation(libs.androidx.navigation.compose)
     implementation(libs.androidx.hilt.navigation.compose)
     implementation(libs.kotlinx.coroutines.android)
-    implementation("androidx.datastore:datastore-preferences:1.3.0")
+    implementation("androidx.datastore:datastore-preferences:1.2.1")
 
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.compose.ui)
