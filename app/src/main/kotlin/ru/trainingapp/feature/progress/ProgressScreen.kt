@@ -57,6 +57,7 @@ fun ProgressScreen(
     onBack: () -> Unit,
 ) {
     Scaffold(
+        containerColor = Color.Transparent,
         topBar = {
             TopAppBar(
                 title = {
