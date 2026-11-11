@@ -319,6 +319,41 @@ class RoomExerciseDefinitionRepository @Inject constructor(
         }
     }
 
+    override suspend fun updateExerciseImageCrop(
+        exerciseDefinitionId: Long,
+        imageId: Long,
+        cropZoom: Float,
+        cropOffsetX: Float,
+        cropOffsetY: Float,
+    ) {
+        val now = System.currentTimeMillis()
+
+        database.withTransaction {
+            val currentExercise = exerciseDefinitionDao
+                .getExerciseDefinitionById(exerciseDefinitionId)
+                ?: return@withTransaction
+
+            val image = exerciseImageDao.getImageById(imageId)
+                ?: return@withTransaction
+
+            if (image.exerciseDefinitionId != exerciseDefinitionId) {
+                return@withTransaction
+            }
+
+            exerciseImageDao.updateCrop(
+                imageId = imageId,
+                cropZoom = cropZoom.coerceIn(1f, 4f),
+                cropOffsetX = cropOffsetX.coerceIn(-1f, 1f),
+                cropOffsetY = cropOffsetY.coerceIn(-1f, 1f),
+                updatedAt = now,
+            )
+
+            exerciseDefinitionDao.updateExerciseDefinition(
+                currentExercise.copy(updatedAt = now)
+            )
+        }
+    }
+
     override suspend fun deleteExerciseImage(
         exerciseDefinitionId: Long,
         imageId: Long,

@@ -72,6 +72,25 @@ interface ExerciseImageDao {
         updatedAt: Long,
     )
 
+
+    @Query(
+        """
+        UPDATE exercise_images
+        SET cropZoom = :cropZoom,
+            cropOffsetX = :cropOffsetX,
+            cropOffsetY = :cropOffsetY,
+            updatedAt = :updatedAt
+        WHERE id = :imageId
+        """
+    )
+    suspend fun updateCrop(
+        imageId: Long,
+        cropZoom: Float,
+        cropOffsetX: Float,
+        cropOffsetY: Float,
+        updatedAt: Long,
+    )
+
     @Query(
         """
         DELETE FROM exercise_images

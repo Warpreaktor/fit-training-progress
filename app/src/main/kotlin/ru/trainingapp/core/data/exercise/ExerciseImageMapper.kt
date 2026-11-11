@@ -10,6 +10,9 @@ fun ExerciseImageEntity.toDomain(): ExerciseImage {
         uri = uri,
         sortOrder = sortOrder,
         isCover = isCover,
+        cropZoom = cropZoom,
+        cropOffsetX = cropOffsetX,
+        cropOffsetY = cropOffsetY,
         createdAt = createdAt,
         updatedAt = updatedAt,
     )

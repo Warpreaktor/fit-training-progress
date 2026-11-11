@@ -77,13 +77,13 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.layout.ContentScale
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
-import coil.compose.AsyncImage
 import ru.trainingapp.core.model.WeightUnit
 import ru.trainingapp.core.model.ExerciseDefinition
+import ru.trainingapp.core.model.ExerciseImage
+import ru.trainingapp.core.ui.component.CroppedExerciseImage
 import kotlin.collections.indexOfFirst
 
 /**
@@ -1714,10 +1714,9 @@ private fun ExerciseDefinitionListItem(
     exercise: ExerciseDefinition,
     onClick: () -> Unit,
 ) {
-    val coverImageUri = exercise.images
+    val coverImage = exercise.images
         .firstOrNull { image -> image.isCover }
-        ?.uri
-        ?: exercise.images.firstOrNull()?.uri
+        ?: exercise.images.firstOrNull()
 
     ListItem(
         modifier = Modifier
@@ -1725,7 +1724,7 @@ private fun ExerciseDefinitionListItem(
             .clickable(onClick = onClick),
         leadingContent = {
             ExerciseDefinitionThumbnail(
-                imageUri = coverImageUri,
+                image = coverImage,
                 exerciseName = exercise.name,
             )
         },
@@ -1740,7 +1739,7 @@ private fun ExerciseDefinitionListItem(
 
 @Composable
 private fun ExerciseDefinitionThumbnail(
-    imageUri: String?,
+    image: ExerciseImage?,
     exerciseName: String,
 ) {
     Box(
@@ -1750,12 +1749,14 @@ private fun ExerciseDefinitionThumbnail(
             .background(MaterialTheme.colorScheme.surfaceVariant),
         contentAlignment = Alignment.Center,
     ) {
-        if (imageUri != null) {
-            AsyncImage(
-                model = imageUri,
+        if (image != null) {
+            CroppedExerciseImage(
+                uri = image.uri,
+                cropZoom = image.cropZoom,
+                cropOffsetX = image.cropOffsetX,
+                cropOffsetY = image.cropOffsetY,
                 contentDescription = "Изображение упражнения $exerciseName",
                 modifier = Modifier.fillMaxSize(),
-                contentScale = ContentScale.Crop,
             )
         } else {
             Icon(

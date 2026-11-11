@@ -69,6 +69,7 @@ dependencies {
 
     //Для отображения картинок
     implementation("io.coil-kt:coil-compose:2.7.0")
+    implementation("io.coil-kt:coil-gif:2.7.0")
 
     implementation(libs.hilt.android)
     ksp(libs.hilt.compiler)

@@ -24,6 +24,7 @@ import ru.trainingapp.core.domain.exercise.ReplaceExerciseDefinitionMusclesUseCa
 import ru.trainingapp.core.domain.exercise.ReplaceExerciseDefinitionTagsUseCase
 import ru.trainingapp.core.domain.exercise.SetExerciseCoverImageUseCase
 import ru.trainingapp.core.domain.exercise.UpdateExerciseDefinitionUseCase
+import ru.trainingapp.core.domain.exercise.UpdateExerciseImageCropUseCase
 import ru.trainingapp.core.domain.exportimport.ExportExerciseUseCase
 import ru.trainingapp.core.domain.exportimport.ImportTrainingPackUseCase
 import ru.trainingapp.core.domain.repository.TrainingPackExportType
@@ -55,6 +56,7 @@ class ExerciseCatalogViewModel @Inject constructor(
     private val replaceExerciseDefinitionMusclesUseCase: ReplaceExerciseDefinitionMusclesUseCase,
     private val addExerciseImagesUseCase: AddExerciseImagesUseCase,
     private val setExerciseCoverImageUseCase: SetExerciseCoverImageUseCase,
+    private val updateExerciseImageCropUseCase: UpdateExerciseImageCropUseCase,
     private val deleteExerciseImageUseCase: DeleteExerciseImageUseCase,
     private val exportExerciseUseCase: ExportExerciseUseCase,
     private val importTrainingPackUseCase: ImportTrainingPackUseCase,
@@ -77,6 +79,8 @@ class ExerciseCatalogViewModel @Inject constructor(
     private var imageViewerExerciseDefinitionIdAfterPicker: Long? = null
 
     private val imageViewerState = MutableStateFlow(ExerciseImageViewerState())
+
+    private val imageCropEditorState = MutableStateFlow(ExerciseImageCropEditorState())
 
     private val transferState = MutableStateFlow(ExerciseTransferState())
 
@@ -124,6 +128,8 @@ class ExerciseCatalogViewModel @Inject constructor(
                 )
             }.combine(muscleEditorState) { combinedState, muscleEditor ->
                 combinedState.copy(muscleEditor = muscleEditor)
+            }.combine(imageCropEditorState) { combinedState, imageCropEditor ->
+                combinedState.copy(imageCropEditor = imageCropEditor)
             },
             selectedFilterTagIds,
             imageViewerState,
@@ -149,6 +155,7 @@ class ExerciseCatalogViewModel @Inject constructor(
                 alternativeEditor = combinedState.alternativeEditor,
                 muscleEditor = combinedState.muscleEditor,
                 imageViewer = imageViewer,
+                imageCropEditor = combinedState.imageCropEditor,
                 transfer = transfer,
                 workoutMembership = workoutMembership,
             )
@@ -586,6 +593,40 @@ class ExerciseCatalogViewModel @Inject constructor(
         transferState.value = transferState.value.copy(message = null)
     }
 
+    fun onOpenImageCropEditor(imageId: Long) {
+        if (imageId <= 0L) {
+            return
+        }
+
+        imageCropEditorState.value = ExerciseImageCropEditorState(
+            imageId = imageId,
+        )
+    }
+
+    fun onDismissImageCropEditor() {
+        imageCropEditorState.value = ExerciseImageCropEditorState()
+    }
+
+    fun onSaveImageCrop(
+        exerciseDefinitionId: Long,
+        imageId: Long,
+        cropZoom: Float,
+        cropOffsetX: Float,
+        cropOffsetY: Float,
+    ) {
+        viewModelScope.launch {
+            updateExerciseImageCropUseCase(
+                exerciseDefinitionId = exerciseDefinitionId,
+                imageId = imageId,
+                cropZoom = cropZoom,
+                cropOffsetX = cropOffsetX,
+                cropOffsetY = cropOffsetY,
+            )
+
+            imageCropEditorState.value = ExerciseImageCropEditorState()
+        }
+    }
+
     fun onSetCoverImageClick(
         exerciseDefinitionId: Long,
         imageId: Long,
@@ -626,6 +667,7 @@ private data class ExerciseCatalogCombinedState(
     val tagEditor: ExerciseTagEditorState,
     val alternativeEditor: ExerciseAlternativeEditorState,
     val muscleEditor: ExerciseMuscleEditorState = ExerciseMuscleEditorState(),
+    val imageCropEditor: ExerciseImageCropEditorState = ExerciseImageCropEditorState(),
 )
 
 data class ExerciseCatalogUiState(
@@ -638,6 +680,7 @@ data class ExerciseCatalogUiState(
     val alternativeEditor: ExerciseAlternativeEditorState = ExerciseAlternativeEditorState(),
     val muscleEditor: ExerciseMuscleEditorState = ExerciseMuscleEditorState(),
     val imageViewer: ExerciseImageViewerState = ExerciseImageViewerState(),
+    val imageCropEditor: ExerciseImageCropEditorState = ExerciseImageCropEditorState(),
     val transfer: ExerciseTransferState = ExerciseTransferState(),
     val workoutMembership: ExerciseWorkoutMembershipState = ExerciseWorkoutMembershipState(),
 )
@@ -691,6 +734,14 @@ data class ExerciseImageViewerState(
 ) {
     val isVisible: Boolean
         get() = exerciseDefinitionId != null
+}
+
+
+data class ExerciseImageCropEditorState(
+    val imageId: Long? = null,
+) {
+    val isVisible: Boolean
+        get() = imageId != null
 }
 
 data class ExerciseTransferState(

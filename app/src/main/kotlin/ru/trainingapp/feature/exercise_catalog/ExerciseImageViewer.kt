@@ -30,6 +30,7 @@ fun ExerciseImageViewer(
     exercise: ExerciseDefinition,
     onDismiss: () -> Unit,
     onAddImagesClick: () -> Unit,
+    onEditCropClick: (Long) -> Unit,
     onSetCoverClick: (Long) -> Unit,
     onDeleteClick: (Long) -> Unit,
 ) {
@@ -141,6 +142,18 @@ fun ExerciseImageViewer(
                         .padding(12.dp),
                     verticalArrangement = Arrangement.spacedBy(4.dp),
                 ) {
+                    TextButton(
+                        onClick = {
+                            currentImage?.let { image ->
+                                onEditCropClick(image.id)
+                            }
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        enabled = currentImage != null,
+                    ) {
+                        Text("Настроить отображение")
+                    }
+
                     TextButton(
                         onClick = {
                             currentImage?.let { image ->

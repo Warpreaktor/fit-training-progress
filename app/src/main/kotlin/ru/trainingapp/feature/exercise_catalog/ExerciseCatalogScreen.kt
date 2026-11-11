@@ -51,15 +51,14 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import coil.compose.AsyncImage
 import ru.trainingapp.core.model.ExerciseDefinition
 import ru.trainingapp.core.model.ExerciseImage
 import ru.trainingapp.core.model.MuscleGroup
 import ru.trainingapp.core.model.Tag
+import ru.trainingapp.core.ui.component.CroppedExerciseImage
 
 @Composable
 fun ExerciseCatalogRoute(
@@ -128,6 +127,9 @@ fun ExerciseCatalogRoute(
         },
         onOpenImageViewer = viewModel::onOpenImageViewer,
         onDismissImageViewer = viewModel::onDismissImageViewer,
+        onOpenImageCropEditor = viewModel::onOpenImageCropEditor,
+        onDismissImageCropEditor = viewModel::onDismissImageCropEditor,
+        onSaveImageCrop = viewModel::onSaveImageCrop,
         onSetCoverImageClick = viewModel::onSetCoverImageClick,
         onDeleteExerciseImageClick = viewModel::onDeleteExerciseImageClick,
         onExportExerciseClick = { exercise ->
@@ -182,6 +184,9 @@ fun ExerciseCatalogScreen(
     onAddImagesClick: (ExerciseDefinition, Boolean) -> Unit,
     onOpenImageViewer: (Long) -> Unit,
     onDismissImageViewer: () -> Unit,
+    onOpenImageCropEditor: (Long) -> Unit,
+    onDismissImageCropEditor: () -> Unit,
+    onSaveImageCrop: (Long, Long, Float, Float, Float) -> Unit,
     onSetCoverImageClick: (Long, Long) -> Unit,
     onDeleteExerciseImageClick: (Long, Long) -> Unit,
     onExportExerciseClick: (ExerciseDefinition) -> Unit,
@@ -323,7 +328,7 @@ fun ExerciseCatalogScreen(
                                 if (exercise.images.isEmpty()) {
                                     onAddImagesClick(
                                         exercise,
-                                        false,
+                                        true,
                                     )
                                 } else {
                                     onOpenImageViewer(exercise.id)
@@ -353,6 +358,7 @@ fun ExerciseCatalogScreen(
                             true,
                         )
                     },
+                    onEditCropClick = onOpenImageCropEditor,
                     onSetCoverClick = { imageId ->
                         onSetCoverImageClick(
                             imageViewerExercise.id,
@@ -432,6 +438,34 @@ fun ExerciseCatalogScreen(
             state = uiState.workoutMembership,
             onToggleWorkout = onWorkoutMembershipChange,
             onDismiss = onDismissWorkoutMembership,
+        )
+    }
+
+    val cropEditorTarget = uiState.imageCropEditor.imageId
+        ?.let { imageId ->
+            uiState.allExercises.firstNotNullOfOrNull { exercise ->
+                exercise.images
+                    .firstOrNull { image -> image.id == imageId }
+                    ?.let { image -> exercise to image }
+            }
+        }
+
+    if (uiState.imageCropEditor.isVisible && cropEditorTarget != null) {
+        val (exercise, image) = cropEditorTarget
+
+        ExerciseImageCropEditor(
+            image = image,
+            exerciseName = exercise.name,
+            onDismiss = onDismissImageCropEditor,
+            onSave = { cropZoom, cropOffsetX, cropOffsetY ->
+                onSaveImageCrop(
+                    exercise.id,
+                    image.id,
+                    cropZoom,
+                    cropOffsetX,
+                    cropOffsetY,
+                )
+            },
         )
     }
 }
@@ -545,9 +579,10 @@ private fun ExerciseCatalogItem(
                 }
 
             ExerciseCoverImage(
-                coverImageUri = exercise.images.firstOrNull { image -> image.isCover }?.uri
-                    ?: exercise.images.firstOrNull()?.uri,
+                coverImage = exercise.images.firstOrNull { image -> image.isCover }
+                    ?: exercise.images.firstOrNull(),
                 onClick = onImageClick,
+                modifier = Modifier.align(Alignment.CenterHorizontally),
             )
 
             if (exercise.tags.isNotEmpty()) {
@@ -1109,11 +1144,13 @@ private fun ExerciseImageItem(
                     .size(96.dp)
                     .clip(RoundedCornerShape(12.dp)),
             ) {
-                AsyncImage(
-                    model = image.uri,
+                CroppedExerciseImage(
+                    uri = image.uri,
+                    cropZoom = image.cropZoom,
+                    cropOffsetX = image.cropOffsetX,
+                    cropOffsetY = image.cropOffsetY,
                     contentDescription = null,
                     modifier = Modifier.fillMaxSize(),
-                    contentScale = ContentScale.Crop,
                 )
             }
 
@@ -1142,24 +1179,26 @@ private fun ExerciseImageItem(
 
 @Composable
 private fun ExerciseCoverImage(
-    coverImageUri: String?,
+    coverImage: ExerciseImage?,
     onClick: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(140.dp)
+        modifier = modifier
+            .size(112.dp)
             .clip(RoundedCornerShape(12.dp))
             .clickable(onClick = onClick)
             .background(MaterialTheme.colorScheme.surfaceVariant),
         contentAlignment = Alignment.Center,
     ) {
-        if (coverImageUri != null) {
-            AsyncImage(
-                model = coverImageUri,
+        if (coverImage != null) {
+            CroppedExerciseImage(
+                uri = coverImage.uri,
+                cropZoom = coverImage.cropZoom,
+                cropOffsetX = coverImage.cropOffsetX,
+                cropOffsetY = coverImage.cropOffsetY,
                 contentDescription = null,
                 modifier = Modifier.fillMaxSize(),
-                contentScale = ContentScale.Crop,
             )
         } else {
             Icon(

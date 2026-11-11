@@ -275,6 +275,9 @@ class RoomTrainingPackRepository @Inject constructor(
                     path = imagePath,
                     sortOrder = image.sortOrder,
                     isCover = image.isCover,
+                    cropZoom = image.cropZoom,
+                    cropOffsetX = image.cropOffsetX,
+                    cropOffsetY = image.cropOffsetY,
                 )
             }
 
@@ -680,6 +683,9 @@ class RoomTrainingPackRepository @Inject constructor(
                     path = path,
                     sortOrder = imageDto.sortOrder ?: imageIndex,
                     isCover = imageDto.isCover == true,
+                    cropZoom = (imageDto.cropZoom ?: 1f).coerceIn(1f, 4f),
+                    cropOffsetX = (imageDto.cropOffsetX ?: 0f).coerceIn(-1f, 1f),
+                    cropOffsetY = (imageDto.cropOffsetY ?: 0f).coerceIn(-1f, 1f),
                     sourceFile = sourceFile,
                 )
             }
@@ -715,6 +721,9 @@ class RoomTrainingPackRepository @Inject constructor(
                     uri = importedImage.localUri,
                     sortOrder = importedImage.candidate.sortOrder,
                     isCover = imageIndex == coverIndex,
+                    cropZoom = importedImage.candidate.cropZoom,
+                    cropOffsetX = importedImage.candidate.cropOffsetX,
+                    cropOffsetY = importedImage.candidate.cropOffsetY,
                     createdAt = now,
                     updatedAt = now,
                 )
@@ -918,6 +927,9 @@ private data class ImportImageCandidate(
     val path: String,
     val sortOrder: Int,
     val isCover: Boolean,
+    val cropZoom: Float,
+    val cropOffsetX: Float,
+    val cropOffsetY: Float,
     val sourceFile: java.io.File,
 )
 

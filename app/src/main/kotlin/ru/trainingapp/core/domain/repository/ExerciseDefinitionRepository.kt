@@ -47,6 +47,14 @@ interface ExerciseDefinitionRepository {
         imageId: Long,
     )
 
+    suspend fun updateExerciseImageCrop(
+        exerciseDefinitionId: Long,
+        imageId: Long,
+        cropZoom: Float,
+        cropOffsetX: Float,
+        cropOffsetY: Float,
+    )
+
     suspend fun deleteExerciseImage(
         exerciseDefinitionId: Long,
         imageId: Long,

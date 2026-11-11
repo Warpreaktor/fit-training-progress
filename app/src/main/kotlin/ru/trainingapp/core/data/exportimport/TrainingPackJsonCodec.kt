@@ -82,6 +82,9 @@ class TrainingPackJsonCodec @Inject constructor() {
                             path = image.optNullableString("path"),
                             sortOrder = image.optNullableInt("sortOrder") ?: imageIndex,
                             isCover = image.optNullableBoolean("isCover"),
+                            cropZoom = image.optNullableDouble("cropZoom")?.toFloat(),
+                            cropOffsetX = image.optNullableDouble("cropOffsetX")?.toFloat(),
+                            cropOffsetY = image.optNullableDouble("cropOffsetY")?.toFloat(),
                         )
                     },
                 )
@@ -147,6 +150,9 @@ class TrainingPackJsonCodec @Inject constructor() {
             .putNullable("path", path)
             .putNullable("sortOrder", sortOrder)
             .putNullable("isCover", isCover)
+            .putNullable("cropZoom", cropZoom)
+            .putNullable("cropOffsetX", cropOffsetX)
+            .putNullable("cropOffsetY", cropOffsetY)
     }
 
     private fun ExportWorkoutDto.toJson(): JSONObject {
