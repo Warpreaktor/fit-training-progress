@@ -93,6 +93,7 @@ fun ExerciseCatalogRoute(
         onBack = onBack,
         onAddExerciseClick = viewModel::onAddExerciseClick,
         onEditExerciseClick = viewModel::onEditExerciseClick,
+        onCopyExerciseClick = viewModel::onCopyExerciseClick,
         onEditExerciseWorkoutsClick = { exerciseDefinitionId ->
             viewModel.onEditExerciseWorkoutsClick(exerciseDefinitionId)
         },
@@ -159,6 +160,7 @@ fun ExerciseCatalogScreen(
     onBack: () -> Unit,
     onAddExerciseClick: () -> Unit,
     onEditExerciseClick: (ExerciseDefinition) -> Unit,
+    onCopyExerciseClick: (ExerciseDefinition) -> Unit,
     onEditExerciseWorkoutsClick: (Long) -> Unit,
     onArchiveExerciseClick: (Long) -> Unit,
     onEditorNameChange: (String) -> Unit,
@@ -320,6 +322,7 @@ fun ExerciseCatalogScreen(
                         ExerciseCatalogItem(
                             exercise = exercise,
                             onEditClick = { onEditExerciseClick(exercise) },
+                            onCopyClick = { onCopyExerciseClick(exercise) },
                             onWorkoutsClick = { onEditExerciseWorkoutsClick(exercise.id) },
                             onEditTagsClick = { onEditExerciseTagsClick(exercise) },
                             onEditAlternativesClick = { onEditExerciseAlternativesClick(exercise) },
@@ -476,6 +479,7 @@ fun ExerciseCatalogScreen(
 private fun ExerciseCatalogItem(
     exercise: ExerciseDefinition,
     onEditClick: () -> Unit,
+    onCopyClick: () -> Unit,
     onWorkoutsClick: () -> Unit,
     onEditTagsClick: () -> Unit,
     onEditAlternativesClick: () -> Unit,
@@ -525,6 +529,14 @@ private fun ExerciseCatalogItem(
                             onClick = {
                                 isMenuExpanded = false
                                 onEditClick()
+                            },
+                        )
+
+                        DropdownMenuItem(
+                            text = { Text("Копировать") },
+                            onClick = {
+                                isMenuExpanded = false
+                                onCopyClick()
                             },
                         )
 
@@ -842,6 +854,10 @@ private fun ExerciseEditorDialog(
                     minLines = 3,
                 )
 
+                if (editor.isCopying) {
+                    ExerciseCopyTemplateSummary(editor = editor)
+                }
+
                 if (editor.isEditing) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -869,6 +885,74 @@ private fun ExerciseEditorDialog(
             }
         },
     )
+}
+
+@Composable
+private fun ExerciseCopyTemplateSummary(
+    editor: ExerciseEditorState,
+) {
+    Column(
+        verticalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        Text(
+            text = "Шаблон: ${editor.templateExerciseName}",
+            style = MaterialTheme.typography.labelLarge,
+        )
+
+        editor.templateTagNames
+            .takeIf { names -> names.isNotEmpty() }
+            ?.let { names ->
+                Text(
+                    text = "Теги: ${names.joinToString { name -> "#$name" }}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+
+        editor.templatePrimaryMuscles
+            .takeIf { muscles -> muscles.isNotEmpty() }
+            ?.let { muscles ->
+                Text(
+                    text = "Основные мышцы: ${muscles.joinToString { muscle -> muscle.displayName }}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+
+        editor.templateSecondaryMuscles
+            .takeIf { muscles -> muscles.isNotEmpty() }
+            ?.let { muscles ->
+                Text(
+                    text = "Доп. мышцы: ${muscles.joinToString { muscle -> muscle.displayName }}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+
+        editor.templateAlternativeNames
+            .takeIf { names -> names.isNotEmpty() }
+            ?.let { names ->
+                Text(
+                    text = "Альтернативы: ${names.joinToString()}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+
+        if (editor.templateImagesCount > 0) {
+            Text(
+                text = "Изображения: ${editor.templateImagesCount}",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+
+        Text(
+            text = "Эти данные будут скопированы при сохранении.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
 }
 
 @Composable

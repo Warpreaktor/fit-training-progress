@@ -16,6 +16,7 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import ru.trainingapp.core.domain.exercise.AddExerciseImagesUseCase
 import ru.trainingapp.core.domain.exercise.ArchiveExerciseDefinitionUseCase
+import ru.trainingapp.core.domain.exercise.CreateExerciseDefinitionFromTemplateUseCase
 import ru.trainingapp.core.domain.exercise.CreateExerciseDefinitionUseCase
 import ru.trainingapp.core.domain.exercise.DeleteExerciseImageUseCase
 import ru.trainingapp.core.domain.exercise.ObserveExerciseDefinitionsUseCase
@@ -48,6 +49,7 @@ class ExerciseCatalogViewModel @Inject constructor(
     observeWorkoutUseCase: ObserveWorkoutUseCase,
     observeExerciseWorkoutMembershipUseCase: ObserveExerciseWorkoutMembershipUseCase,
     private val createExerciseDefinitionUseCase: CreateExerciseDefinitionUseCase,
+    private val createExerciseDefinitionFromTemplateUseCase: CreateExerciseDefinitionFromTemplateUseCase,
     private val updateExerciseDefinitionUseCase: UpdateExerciseDefinitionUseCase,
     private val archiveExerciseDefinitionUseCase: ArchiveExerciseDefinitionUseCase,
     private val createTagUseCase: CreateTagUseCase,
@@ -183,6 +185,21 @@ class ExerciseCatalogViewModel @Inject constructor(
         )
     }
 
+    fun onCopyExerciseClick(exercise: ExerciseDefinition) {
+        editorState.value = ExerciseEditorState(
+            isVisible = true,
+            templateExerciseId = exercise.id,
+            templateExerciseName = exercise.name,
+            name = buildCopyExerciseName(exercise.name),
+            description = exercise.description,
+            templateTagNames = exercise.tags.map { tag -> tag.name },
+            templatePrimaryMuscles = exercise.muscles,
+            templateSecondaryMuscles = exercise.secondaryMuscles,
+            templateAlternativeNames = exercise.alternatives.map { alternative -> alternative.name },
+            templateImagesCount = exercise.images.size,
+        )
+    }
+
     fun onEditExerciseWorkoutsClick(exerciseDefinitionId: Long) {
         if (exerciseDefinitionId <= 0L) {
             return
@@ -260,10 +277,20 @@ class ExerciseCatalogViewModel @Inject constructor(
             val exerciseId = editor.exerciseId
 
             if (exerciseId == null) {
-                createExerciseDefinitionUseCase(
-                    name = editor.name,
-                    description = editor.description,
-                )
+                val templateExerciseId = editor.templateExerciseId
+
+                if (templateExerciseId == null) {
+                    createExerciseDefinitionUseCase(
+                        name = editor.name,
+                        description = editor.description,
+                    )
+                } else {
+                    createExerciseDefinitionFromTemplateUseCase(
+                        templateExerciseDefinitionId = templateExerciseId,
+                        name = editor.name,
+                        description = editor.description,
+                    )
+                }
             } else {
                 updateExerciseDefinitionUseCase(
                     id = exerciseId,
@@ -651,6 +678,16 @@ class ExerciseCatalogViewModel @Inject constructor(
         }
     }
 
+    private fun buildCopyExerciseName(sourceName: String): String {
+        val normalizedName = sourceName.trimEnd()
+
+        return if (normalizedName.endsWith("*")) {
+            "$normalizedName*"
+        } else {
+            "$normalizedName *"
+        }
+    }
+
     private fun Set<Long>.toggle(value: Long): Set<Long> {
         return if (value in this) {
             this - value
@@ -686,15 +723,24 @@ data class ExerciseCatalogUiState(
 )
 
 data class ExerciseEditorState(
-
     val isVisible: Boolean = false,
     val exerciseId: Long? = null,
+    val templateExerciseId: Long? = null,
+    val templateExerciseName: String = "",
     val name: String = "",
     val description: String = "",
     val nameError: String? = null,
+    val templateTagNames: List<String> = emptyList(),
+    val templatePrimaryMuscles: List<MuscleGroup> = emptyList(),
+    val templateSecondaryMuscles: List<MuscleGroup> = emptyList(),
+    val templateAlternativeNames: List<String> = emptyList(),
+    val templateImagesCount: Int = 0,
 ) {
     val isEditing: Boolean
         get() = exerciseId != null
+
+    val isCopying: Boolean
+        get() = templateExerciseId != null
 }
 
 data class ExerciseTagEditorState(

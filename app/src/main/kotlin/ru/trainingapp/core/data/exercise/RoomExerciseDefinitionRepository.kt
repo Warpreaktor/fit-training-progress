@@ -136,6 +136,102 @@ class RoomExerciseDefinitionRepository @Inject constructor(
         )
     }
 
+
+    override suspend fun createExerciseDefinitionFromTemplate(
+        templateExerciseDefinitionId: Long,
+        name: String,
+        description: String,
+    ) {
+        val sourceExercise = exerciseDefinitionDao
+            .getExerciseDefinitionById(templateExerciseDefinitionId)
+            ?: return
+
+        val sourceTagIds = tagDao
+            .getTagsByExerciseDefinitionId(templateExerciseDefinitionId)
+            .map { tag -> tag.id }
+            .toSet()
+
+        val sourceAlternativeIds = exerciseAlternativeDao
+            .getAlternativeExerciseDefinitionIds(templateExerciseDefinitionId)
+            .toSet()
+
+        val sourcePrimaryMuscleCodes = exerciseMuscleDao
+            .getMuscleCodesByExerciseDefinitionId(
+                exerciseDefinitionId = templateExerciseDefinitionId,
+                loadType = MuscleLoadType.PRIMARY.code,
+            )
+            .toSet()
+
+        val sourceSecondaryMuscleCodes = exerciseMuscleDao
+            .getMuscleCodesByExerciseDefinitionId(
+                exerciseDefinitionId = templateExerciseDefinitionId,
+                loadType = MuscleLoadType.SECONDARY.code,
+            )
+            .toSet()
+
+        val sourceImages = exerciseImageDao
+            .getImagesByExerciseDefinitionId(templateExerciseDefinitionId)
+
+        val now = System.currentTimeMillis()
+        val newExerciseDefinitionId = exerciseDefinitionDao
+            .insertExerciseDefinitionAndGetId(
+                sourceExercise.copy(
+                    id = 0L,
+                    name = name.trim(),
+                    description = description.trim(),
+                    isArchived = false,
+                    archivedAt = null,
+                    createdAt = now,
+                    updatedAt = now,
+                )
+            )
+
+        val copiedImages = sourceImages.mapNotNull { sourceImage ->
+            exerciseImageFileStorage.copyStoredImageToExercise(
+                exerciseDefinitionId = newExerciseDefinitionId,
+                sourceUriString = sourceImage.uri,
+            )?.let { copiedUri ->
+                sourceImage.copy(
+                    id = 0L,
+                    exerciseDefinitionId = newExerciseDefinitionId,
+                    uri = copiedUri,
+                    createdAt = now,
+                    updatedAt = now,
+                )
+            }
+        }.let { images ->
+            if (images.isNotEmpty() && images.none { image -> image.isCover }) {
+                images.mapIndexed { index, image ->
+                    if (index == 0) image.copy(isCover = true) else image
+                }
+            } else {
+                images
+            }
+        }
+
+        database.withTransaction {
+            tagDao.replaceExerciseDefinitionTags(
+                exerciseDefinitionId = newExerciseDefinitionId,
+                tagIds = sourceTagIds,
+            )
+
+            exerciseAlternativeDao.replaceAlternatives(
+                exerciseDefinitionId = newExerciseDefinitionId,
+                alternativeExerciseDefinitionIds = sourceAlternativeIds,
+            )
+
+            exerciseMuscleDao.replaceMuscleCodes(
+                exerciseDefinitionId = newExerciseDefinitionId,
+                primaryMuscleCodes = sourcePrimaryMuscleCodes,
+                secondaryMuscleCodes = sourceSecondaryMuscleCodes,
+            )
+
+            copiedImages.forEach { image ->
+                exerciseImageDao.insertImage(image)
+            }
+        }
+    }
+
     override suspend fun updateExerciseDefinition(
         id: Long,
         name: String,

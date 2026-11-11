@@ -83,6 +83,35 @@ class ExerciseImageFileStorage @Inject constructor(
         Uri.fromFile(targetFile).toString()
     }
 
+    suspend fun copyStoredImageToExercise(
+        exerciseDefinitionId: Long,
+        sourceUriString: String,
+    ): String? = withContext(Dispatchers.IO) {
+        val sourceUri = Uri.parse(sourceUriString)
+
+        if (sourceUri.scheme == "file") {
+            val sourcePath = sourceUri.path ?: return@withContext null
+            val sourceFile = File(sourcePath)
+
+            if (!sourceFile.isFile) {
+                return@withContext null
+            }
+
+            return@withContext copyFileToPrivateStorage(
+                exerciseDefinitionId = exerciseDefinitionId,
+                sourceFile = sourceFile,
+                extension = sourceFile.extension,
+            )
+        }
+
+        runCatching {
+            copyToPrivateStorage(
+                exerciseDefinitionId = exerciseDefinitionId,
+                sourceUriString = sourceUriString,
+            )
+        }.getOrNull()
+    }
+
     suspend fun deleteByUri(
         uriString: String,
     ) = withContext(Dispatchers.IO) {

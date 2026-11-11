@@ -13,6 +13,12 @@ interface ExerciseDefinitionRepository {
         description: String,
     )
 
+    suspend fun createExerciseDefinitionFromTemplate(
+        templateExerciseDefinitionId: Long,
+        name: String,
+        description: String,
+    )
+
     suspend fun updateExerciseDefinition(
         id: Long,
         name: String,
