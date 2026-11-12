@@ -70,6 +70,18 @@ class ExerciseCatalogViewModel @Inject constructor(
 
     private val selectedFilterTagIds = MutableStateFlow<Set<Long>>(emptySet())
 
+    private val searchQuery = MutableStateFlow("")
+
+    private val filterState = combine(
+        selectedFilterTagIds,
+        searchQuery,
+    ) { tagIds, query ->
+        ExerciseCatalogFilterState(
+            tagIds = tagIds,
+            query = query,
+        )
+    }
+
     private val tagEditorState = MutableStateFlow(ExerciseTagEditorState())
 
     private val alternativeEditorState = MutableStateFlow(ExerciseAlternativeEditorState())
@@ -133,25 +145,28 @@ class ExerciseCatalogViewModel @Inject constructor(
             }.combine(imageCropEditorState) { combinedState, imageCropEditor ->
                 combinedState.copy(imageCropEditor = imageCropEditor)
             },
-            selectedFilterTagIds,
+            filterState,
             imageViewerState,
             transferState,
             workoutMembershipUiState,
-        ) { combinedState, filterTagIds, imageViewer, transfer, workoutMembership ->
+        ) { combinedState, filters, imageViewer, transfer, workoutMembership ->
 
-            val filteredExercises = if (filterTagIds.isEmpty()) {
-                combinedState.exercises
-            } else {
-                combinedState.exercises.filter { exercise ->
-                    exercise.tags.any { tag -> tag.id in filterTagIds }
-                }
+            val normalizedQuery = filters.query.trim()
+            val filteredExercises = combinedState.exercises.filter { exercise ->
+                val matchesTags = filters.tagIds.isEmpty() ||
+                    exercise.tags.any { tag -> tag.id in filters.tagIds }
+                val matchesQuery = normalizedQuery.isEmpty() ||
+                    exercise.name.contains(normalizedQuery, ignoreCase = true)
+
+                matchesTags && matchesQuery
             }
 
             ExerciseCatalogUiState(
                 exercises = filteredExercises,
                 allExercises = combinedState.exercises,
                 allTags = combinedState.tags,
-                selectedFilterTagIds = filterTagIds,
+                selectedFilterTagIds = filters.tagIds,
+                searchQuery = filters.query,
                 editor = combinedState.editor,
                 tagEditor = combinedState.tagEditor,
                 alternativeEditor = combinedState.alternativeEditor,
@@ -307,6 +322,10 @@ class ExerciseCatalogViewModel @Inject constructor(
         viewModelScope.launch {
             archiveExerciseDefinitionUseCase(exerciseId)
         }
+    }
+
+    fun onSearchQueryChange(value: String) {
+        searchQuery.value = value
     }
 
     fun onFilterTagClick(tagId: Long) {
@@ -697,6 +716,11 @@ class ExerciseCatalogViewModel @Inject constructor(
     }
 }
 
+private data class ExerciseCatalogFilterState(
+    val tagIds: Set<Long> = emptySet(),
+    val query: String = "",
+)
+
 private data class ExerciseCatalogCombinedState(
     val exercises: List<ExerciseDefinition>,
     val tags: List<Tag>,
@@ -712,6 +736,7 @@ data class ExerciseCatalogUiState(
     val allExercises: List<ExerciseDefinition> = emptyList(),
     val allTags: List<Tag> = emptyList(),
     val selectedFilterTagIds: Set<Long> = emptySet(),
+    val searchQuery: String = "",
     val editor: ExerciseEditorState = ExerciseEditorState(),
     val tagEditor: ExerciseTagEditorState = ExerciseTagEditorState(),
     val alternativeEditor: ExerciseAlternativeEditorState = ExerciseAlternativeEditorState(),

@@ -21,8 +21,10 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.Image
 import androidx.compose.material.icons.outlined.MoreVert
+import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Card
@@ -102,6 +104,7 @@ fun ExerciseCatalogRoute(
         onEditorDescriptionChange = viewModel::onEditorDescriptionChange,
         onDismissEditor = viewModel::onDismissEditor,
         onSaveExerciseClick = viewModel::onSaveExerciseClick,
+        onSearchQueryChange = viewModel::onSearchQueryChange,
         onFilterTagClick = viewModel::onFilterTagClick,
         onClearFilterClick = viewModel::onClearFilterClick,
         onEditExerciseTagsClick = viewModel::onEditExerciseTagsClick,
@@ -167,6 +170,7 @@ fun ExerciseCatalogScreen(
     onEditorDescriptionChange: (String) -> Unit,
     onDismissEditor: () -> Unit,
     onSaveExerciseClick: () -> Unit,
+    onSearchQueryChange: (String) -> Unit,
     onFilterTagClick: (Long) -> Unit,
     onClearFilterClick: () -> Unit,
     onEditExerciseTagsClick: (ExerciseDefinition) -> Unit,
@@ -272,6 +276,32 @@ fun ExerciseCatalogScreen(
                 )
             }
 
+            OutlinedTextField(
+                value = uiState.searchQuery,
+                onValueChange = onSearchQueryChange,
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+                placeholder = { Text("Поиск по названию") },
+                leadingIcon = {
+                    Icon(
+                        imageVector = Icons.Outlined.Search,
+                        contentDescription = null,
+                    )
+                },
+                trailingIcon = if (uiState.searchQuery.isNotEmpty()) {
+                    {
+                        IconButton(onClick = { onSearchQueryChange("") }) {
+                            Icon(
+                                imageVector = Icons.Outlined.Close,
+                                contentDescription = "Очистить поиск",
+                            )
+                        }
+                    }
+                } else {
+                    null
+                },
+            )
+
             if (uiState.allTags.isNotEmpty()) {
                 TagFilterRow(
                     tags = uiState.allTags,
@@ -282,7 +312,8 @@ fun ExerciseCatalogScreen(
             }
 
             if (uiState.exercises.isEmpty()) {
-                val hasFilter = uiState.selectedFilterTagIds.isNotEmpty()
+                val hasFilter = uiState.selectedFilterTagIds.isNotEmpty() ||
+                    uiState.searchQuery.isNotBlank()
 
                 Column(
                     modifier = Modifier
@@ -302,7 +333,7 @@ fun ExerciseCatalogScreen(
 
                     Text(
                         text = if (hasFilter) {
-                            "Под выбранные теги нет упражнений."
+                            "По текущему поиску и фильтрам упражнений нет."
                         } else {
                             "Добавь первое упражнение в справочник."
                         },
