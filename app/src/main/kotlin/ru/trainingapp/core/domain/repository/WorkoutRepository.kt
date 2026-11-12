@@ -88,6 +88,11 @@ interface WorkoutRepository {
         executionMethod: String?,
     )
 
+    suspend fun updateWorkoutExerciseComment(
+        workoutExerciseId: Long,
+        comment: String?,
+    )
+
     suspend fun createWorkoutExerciseSection(
         workoutId: Long,
         workoutExerciseIds: Set<Long>,

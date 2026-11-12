@@ -25,6 +25,7 @@ import ru.trainingapp.core.domain.workout.ResetWorkoutCheckmarksUseCase
 import ru.trainingapp.core.domain.workout.SelectWorkoutExerciseVariantUseCase
 import ru.trainingapp.core.domain.workout.ToggleWorkoutExerciseCheckedUseCase
 import ru.trainingapp.core.domain.workout.UpdateWorkoutExerciseExecutionMethodUseCase
+import ru.trainingapp.core.domain.workout.UpdateWorkoutExerciseCommentUseCase
 import ru.trainingapp.core.domain.workout.UpdateWorkoutExerciseSetUseCase
 import ru.trainingapp.core.domain.workout.WorkoutSectionUseCase
 import ru.trainingapp.core.domain.workout.WorkoutTimerUseCase
@@ -47,6 +48,7 @@ class WorkoutEditorViewModel @Inject constructor(
     private val resetWorkoutCheckmarksUseCase: ResetWorkoutCheckmarksUseCase,
     private val selectWorkoutExerciseVariantUseCase: SelectWorkoutExerciseVariantUseCase,
     private val updateWorkoutExerciseExecutionMethodUseCase: UpdateWorkoutExerciseExecutionMethodUseCase,
+    private val updateWorkoutExerciseCommentUseCase: UpdateWorkoutExerciseCommentUseCase,
     private val commitPendingProgressUseCase: CommitPendingProgressUseCase,
     private val calculateWorkoutMuscleBalanceUseCase: CalculateWorkoutMuscleBalanceUseCase,
     private val workoutTimerUseCase: WorkoutTimerUseCase,
@@ -173,6 +175,13 @@ class WorkoutEditorViewModel @Inject constructor(
                 updateExecutionMethod(
                     workoutExerciseId = action.workoutExerciseId,
                     executionMethod = action.executionMethod,
+                )
+            }
+
+            is WorkoutEditorAction.CommentChanged -> {
+                updateComment(
+                    workoutExerciseId = action.workoutExerciseId,
+                    comment = action.comment,
                 )
             }
 
@@ -389,6 +398,18 @@ class WorkoutEditorViewModel @Inject constructor(
             updateWorkoutExerciseExecutionMethodUseCase(
                 workoutExerciseId = workoutExerciseId,
                 executionMethod = executionMethod,
+            )
+        }
+    }
+
+    private fun updateComment(
+        workoutExerciseId: Long,
+        comment: String?,
+    ) {
+        launchOperation {
+            updateWorkoutExerciseCommentUseCase(
+                workoutExerciseId = workoutExerciseId,
+                comment = comment,
             )
         }
     }

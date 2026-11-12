@@ -661,6 +661,38 @@ class RoomWorkoutRepository @Inject constructor(
         }
     }
 
+    override suspend fun updateWorkoutExerciseComment(
+        workoutExerciseId: Long,
+        comment: String?,
+    ) {
+        val now = System.currentTimeMillis()
+        val normalizedComment = comment
+            ?.trim()
+            ?.takeIf { value -> value.isNotBlank() }
+
+        database.withTransaction {
+            val workoutExercise = workoutExerciseDao
+                .getWorkoutExerciseById(workoutExerciseId)
+                ?: return@withTransaction
+
+            if (workoutExercise.comment == normalizedComment) {
+                return@withTransaction
+            }
+
+            workoutExerciseDao.updateWorkoutExercise(
+                workoutExercise.copy(
+                    comment = normalizedComment,
+                    updatedAt = now,
+                )
+            )
+
+            workoutDao.touchWorkout(
+                id = workoutExercise.workoutId,
+                updatedAt = now,
+            )
+        }
+    }
+
     private fun WorkoutExerciseSetEntity.toVariantSetEntity(
         exerciseDefinitionId: Long,
         updatedAt: Long,

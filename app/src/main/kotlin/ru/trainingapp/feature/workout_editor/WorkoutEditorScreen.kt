@@ -982,6 +982,9 @@ private fun WorkoutExerciseCard(
     var isExecutionMethodDialogVisible by rememberSaveable(exercise.id, "execution-method-dialog") {
         mutableStateOf(false)
     }
+    var isCommentDialogVisible by rememberSaveable(exercise.id, "comment-dialog") {
+        mutableStateOf(false)
+    }
 
     Card(
         modifier = Modifier
@@ -1076,6 +1079,22 @@ private fun WorkoutExerciseCard(
                                             isExecutionMethodDialogVisible = true
                                         },
                                     )
+
+                                    DropdownMenuItem(
+                                        text = {
+                                            Text(
+                                                if (exercise.comment.isNullOrBlank()) {
+                                                    "Добавить комментарий"
+                                                } else {
+                                                    "Изменить комментарий"
+                                                }
+                                            )
+                                        },
+                                        onClick = {
+                                            isExerciseMenuExpanded = false
+                                            isCommentDialogVisible = true
+                                        },
+                                    )
                                 }
                             }
                         }
@@ -1128,6 +1147,34 @@ private fun WorkoutExerciseCard(
                         modifier = Modifier.padding(start = 48.dp),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+
+                if (exercise.comment.isNullOrBlank()) {
+                    Text(
+                        text = "+ Добавить комментарий",
+                        modifier = Modifier
+                            .padding(start = 48.dp)
+                            .clickable {
+                                isCommentDialogVisible = true
+                            }
+                            .padding(vertical = 4.dp),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                } else {
+                    Text(
+                        text = "Комментарий: ${exercise.comment}",
+                        modifier = Modifier
+                            .padding(start = 48.dp)
+                            .clickable {
+                                isCommentDialogVisible = true
+                            }
+                            .padding(vertical = 4.dp),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 3,
+                        overflow = TextOverflow.Ellipsis,
                     )
                 }
 
@@ -1277,6 +1324,84 @@ private fun WorkoutExerciseCard(
             },
         )
     }
+
+
+    if (isCommentDialogVisible) {
+        WorkoutExerciseCommentDialog(
+            initialComment = exercise.comment,
+            onDismiss = {
+                isCommentDialogVisible = false
+            },
+            onSave = { comment ->
+                isCommentDialogVisible = false
+                onAction(
+                    WorkoutEditorAction.CommentChanged(
+                        workoutExerciseId = exercise.id,
+                        comment = comment,
+                    )
+                )
+            },
+        )
+    }
+}
+
+@Composable
+private fun WorkoutExerciseCommentDialog(
+    initialComment: String?,
+    onDismiss: () -> Unit,
+    onSave: (String?) -> Unit,
+) {
+    var comment by remember(initialComment) {
+        mutableStateOf(initialComment.orEmpty())
+    }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text("Комментарий к упражнению")
+        },
+        text = {
+            OutlinedTextField(
+                value = comment,
+                onValueChange = { value ->
+                    comment = value
+                },
+                modifier = Modifier.fillMaxWidth(),
+                label = { Text("Комментарий") },
+                placeholder = {
+                    Text("Например: в следующий раз увеличить вес")
+                },
+                minLines = 3,
+                maxLines = 6,
+            )
+        },
+        confirmButton = {
+            TextButton(
+                onClick = {
+                    onSave(comment.trim().takeIf { value -> value.isNotBlank() })
+                },
+            ) {
+                Text("Сохранить")
+            }
+        },
+        dismissButton = {
+            Row {
+                if (!initialComment.isNullOrBlank()) {
+                    TextButton(
+                        onClick = {
+                            onSave(null)
+                        },
+                    ) {
+                        Text("Удалить")
+                    }
+                }
+
+                TextButton(onClick = onDismiss) {
+                    Text("Отмена")
+                }
+            }
+        },
+    )
 }
 
 @Composable
