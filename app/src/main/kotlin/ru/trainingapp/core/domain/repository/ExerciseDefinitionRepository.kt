@@ -2,6 +2,7 @@ package ru.trainingapp.core.domain.repository
 
 import kotlinx.coroutines.flow.Flow
 import ru.trainingapp.core.model.ExerciseDefinition
+import ru.trainingapp.core.model.ExerciseImageEdit
 import ru.trainingapp.core.model.MuscleGroup
 
 interface ExerciseDefinitionRepository {
@@ -11,7 +12,7 @@ interface ExerciseDefinitionRepository {
     suspend fun createExerciseDefinition(
         name: String,
         description: String,
-    )
+    ): Long
 
     suspend fun createExerciseDefinitionFromTemplate(
         templateExerciseDefinitionId: Long,
@@ -46,6 +47,11 @@ interface ExerciseDefinitionRepository {
     suspend fun addExerciseImages(
         exerciseDefinitionId: Long,
         sourceUris: List<String>,
+    )
+
+    suspend fun replaceExerciseImages(
+        exerciseDefinitionId: Long,
+        images: List<ExerciseImageEdit>,
     )
 
     suspend fun setExerciseCoverImage(

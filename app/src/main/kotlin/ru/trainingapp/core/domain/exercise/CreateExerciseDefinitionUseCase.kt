@@ -10,11 +10,11 @@ class CreateExerciseDefinitionUseCase @Inject constructor(
     suspend operator fun invoke(
         name: String,
         description: String,
-    ) {
+    ): Long {
         val normalizedName = name.trim()
-        if (normalizedName.isBlank()) return
+        if (normalizedName.isBlank()) return 0L
 
-        repository.createExerciseDefinition(
+        return repository.createExerciseDefinition(
             name = normalizedName,
             description = description.trim(),
         )

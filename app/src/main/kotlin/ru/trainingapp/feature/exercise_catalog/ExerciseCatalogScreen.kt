@@ -15,10 +15,13 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Close
@@ -39,6 +42,7 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
@@ -55,6 +59,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import ru.trainingapp.core.model.ExerciseDefinition
@@ -90,6 +96,14 @@ fun ExerciseCatalogRoute(
         )
     }
 
+    val editorImagePickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetMultipleContents(),
+    ) { uris ->
+        viewModel.onEditorImagesSelected(
+            uriStrings = uris.map { uri -> uri.toString() },
+        )
+    }
+
     ExerciseCatalogScreen(
         uiState = uiState,
         onBack = onBack,
@@ -102,6 +116,20 @@ fun ExerciseCatalogRoute(
         onArchiveExerciseClick = viewModel::onArchiveExerciseClick,
         onEditorNameChange = viewModel::onEditorNameChange,
         onEditorDescriptionChange = viewModel::onEditorDescriptionChange,
+        onEditorToggleTag = viewModel::onEditorToggleTag,
+        onEditorNewTagNameChange = viewModel::onEditorNewTagNameChange,
+        onEditorAddTag = viewModel::onEditorAddTag,
+        onEditorRemovePendingTag = viewModel::onEditorRemovePendingTag,
+        onEditorToggleAlternative = viewModel::onEditorToggleAlternative,
+        onEditorMusclesClick = viewModel::onEditorMusclesClick,
+        onEditorImagesClick = viewModel::onEditorImagesClick,
+        onEditorAddImagesClick = { editorImagePickerLauncher.launch("image/*") },
+        onDismissEditorImages = viewModel::onDismissEditorImages,
+        onEditorSetCoverImage = viewModel::onEditorSetCoverImage,
+        onEditorDeleteImage = viewModel::onEditorDeleteImage,
+        onEditorOpenImageCrop = viewModel::onEditorOpenImageCrop,
+        onEditorDismissImageCrop = viewModel::onEditorDismissImageCrop,
+        onEditorSaveImageCrop = viewModel::onEditorSaveImageCrop,
         onDismissEditor = viewModel::onDismissEditor,
         onSaveExerciseClick = viewModel::onSaveExerciseClick,
         onSearchQueryChange = viewModel::onSearchQueryChange,
@@ -168,6 +196,20 @@ fun ExerciseCatalogScreen(
     onArchiveExerciseClick: (Long) -> Unit,
     onEditorNameChange: (String) -> Unit,
     onEditorDescriptionChange: (String) -> Unit,
+    onEditorToggleTag: (Long) -> Unit,
+    onEditorNewTagNameChange: (String) -> Unit,
+    onEditorAddTag: () -> Unit,
+    onEditorRemovePendingTag: (String) -> Unit,
+    onEditorToggleAlternative: (Long) -> Unit,
+    onEditorMusclesClick: () -> Unit,
+    onEditorImagesClick: () -> Unit,
+    onEditorAddImagesClick: () -> Unit,
+    onDismissEditorImages: () -> Unit,
+    onEditorSetCoverImage: (Long) -> Unit,
+    onEditorDeleteImage: (Long) -> Unit,
+    onEditorOpenImageCrop: (Long) -> Unit,
+    onEditorDismissImageCrop: () -> Unit,
+    onEditorSaveImageCrop: (Long, Float, Float, Float) -> Unit,
     onDismissEditor: () -> Unit,
     onSaveExerciseClick: () -> Unit,
     onSearchQueryChange: (String) -> Unit,
@@ -355,9 +397,6 @@ fun ExerciseCatalogScreen(
                             onEditClick = { onEditExerciseClick(exercise) },
                             onCopyClick = { onCopyExerciseClick(exercise) },
                             onWorkoutsClick = { onEditExerciseWorkoutsClick(exercise.id) },
-                            onEditTagsClick = { onEditExerciseTagsClick(exercise) },
-                            onEditAlternativesClick = { onEditExerciseAlternativesClick(exercise) },
-                            onEditMusclesClick = { onEditExerciseMusclesClick(exercise) },
                             onArchiveClick = { onArchiveExerciseClick(exercise.id) },
                             onExportClick = { onExportExerciseClick(exercise) },
                             onImageClick = {
@@ -419,22 +458,62 @@ fun ExerciseCatalogScreen(
     if (uiState.editor.isVisible) {
         ExerciseEditorDialog(
             editor = uiState.editor,
+            allTags = uiState.allTags,
+            allExercises = uiState.allExercises,
             onNameChange = onEditorNameChange,
             onDescriptionChange = onEditorDescriptionChange,
-            onWorkoutsClick = {
-                uiState.editor.exerciseId?.let(onEditExerciseWorkoutsClick)
-            },
-            onMusclesClick = {
-                val exerciseId = uiState.editor.exerciseId
-
-                if (exerciseId != null) {
-                    uiState.allExercises
-                        .firstOrNull { exercise -> exercise.id == exerciseId }
-                        ?.let(onEditExerciseMusclesClick)
-                }
-            },
+            onToggleTag = onEditorToggleTag,
+            onNewTagNameChange = onEditorNewTagNameChange,
+            onAddTag = onEditorAddTag,
+            onRemovePendingTag = onEditorRemovePendingTag,
+            onToggleAlternative = onEditorToggleAlternative,
+            onMusclesClick = onEditorMusclesClick,
+            onImagesClick = onEditorImagesClick,
             onDismiss = onDismissEditor,
             onSave = onSaveExerciseClick,
+        )
+    }
+
+    if (uiState.editor.isImagesEditorVisible) {
+        ExerciseEditorImagesDialog(
+            editor = uiState.editor,
+            onAddImages = onEditorAddImagesClick,
+            onEditCrop = onEditorOpenImageCrop,
+            onSetCover = onEditorSetCoverImage,
+            onDelete = onEditorDeleteImage,
+            onDismiss = onDismissEditorImages,
+        )
+    }
+
+    val editorCropImage = uiState.editor.cropImageKey
+        ?.let { imageKey ->
+            uiState.editor.images.firstOrNull { image -> image.key == imageKey }
+        }
+
+    if (editorCropImage != null) {
+        ExerciseImageCropEditor(
+            image = ExerciseImage(
+                id = editorCropImage.key,
+                exerciseDefinitionId = uiState.editor.exerciseId ?: 0L,
+                uri = editorCropImage.uri,
+                sortOrder = 0,
+                isCover = editorCropImage.isCover,
+                cropZoom = editorCropImage.cropZoom,
+                cropOffsetX = editorCropImage.cropOffsetX,
+                cropOffsetY = editorCropImage.cropOffsetY,
+                createdAt = 0L,
+                updatedAt = 0L,
+            ),
+            exerciseName = uiState.editor.name.ifBlank { "Новое упражнение" },
+            onDismiss = onEditorDismissImageCrop,
+            onSave = { cropZoom, cropOffsetX, cropOffsetY ->
+                onEditorSaveImageCrop(
+                    editorCropImage.key,
+                    cropZoom,
+                    cropOffsetX,
+                    cropOffsetY,
+                )
+            },
         )
     }
 
@@ -512,9 +591,6 @@ private fun ExerciseCatalogItem(
     onEditClick: () -> Unit,
     onCopyClick: () -> Unit,
     onWorkoutsClick: () -> Unit,
-    onEditTagsClick: () -> Unit,
-    onEditAlternativesClick: () -> Unit,
-    onEditMusclesClick: () -> Unit,
     onArchiveClick: () -> Unit,
     onExportClick: () -> Unit,
     onImageClick: () -> Unit,
@@ -556,7 +632,7 @@ private fun ExerciseCatalogItem(
                         },
                     ) {
                         DropdownMenuItem(
-                            text = { Text("Изменить") },
+                            text = { Text("Редактировать") },
                             onClick = {
                                 isMenuExpanded = false
                                 onEditClick()
@@ -568,30 +644,6 @@ private fun ExerciseCatalogItem(
                             onClick = {
                                 isMenuExpanded = false
                                 onCopyClick()
-                            },
-                        )
-
-                        DropdownMenuItem(
-                            text = { Text("Теги") },
-                            onClick = {
-                                isMenuExpanded = false
-                                onEditTagsClick()
-                            },
-                        )
-
-                        DropdownMenuItem(
-                            text = { Text("Мышцы") },
-                            onClick = {
-                                isMenuExpanded = false
-                                onEditMusclesClick()
-                            },
-                        )
-
-                        DropdownMenuItem(
-                            text = { Text("Альтернативы") },
-                            onClick = {
-                                isMenuExpanded = false
-                                onEditAlternativesClick()
                             },
                         )
 
@@ -843,146 +895,481 @@ private fun ExerciseTagsDialog(
 @Composable
 private fun ExerciseEditorDialog(
     editor: ExerciseEditorState,
+    allTags: List<Tag>,
+    allExercises: List<ExerciseDefinition>,
     onNameChange: (String) -> Unit,
     onDescriptionChange: (String) -> Unit,
-    onWorkoutsClick: () -> Unit,
+    onToggleTag: (Long) -> Unit,
+    onNewTagNameChange: (String) -> Unit,
+    onAddTag: () -> Unit,
+    onRemovePendingTag: (String) -> Unit,
+    onToggleAlternative: (Long) -> Unit,
     onMusclesClick: () -> Unit,
+    onImagesClick: () -> Unit,
     onDismiss: () -> Unit,
     onSave: () -> Unit,
 ) {
-    AlertDialog(
+    var tagsExpanded by remember(editor.exerciseId, editor.templateExerciseId) {
+        mutableStateOf(false)
+    }
+    var alternativesExpanded by remember(editor.exerciseId, editor.templateExerciseId) {
+        mutableStateOf(false)
+    }
+
+    val selectedTags = allTags.filter { tag -> tag.id in editor.selectedTagIds }
+    val selectedAlternatives = allExercises.filter { exercise ->
+        exercise.id in editor.selectedAlternativeExerciseDefinitionIds
+    }
+    val muscleSummary = buildList {
+        if (editor.selectedPrimaryMuscleGroups.isNotEmpty()) {
+            add(editor.selectedPrimaryMuscleGroups.joinToString { muscle -> muscle.displayName })
+        }
+        if (editor.selectedSecondaryMuscleGroups.isNotEmpty()) {
+            add("доп.: ${editor.selectedSecondaryMuscleGroups.joinToString { muscle -> muscle.displayName }}")
+        }
+    }.joinToString(" • ")
+
+    Dialog(
         onDismissRequest = onDismiss,
-        title = {
-            Text(
-                text = if (editor.isEditing) {
-                    "Изменить упражнение"
-                } else {
-                    "Новое упражнение"
-                }
-            )
-        },
-        text = {
+        properties = DialogProperties(
+            usePlatformDefaultWidth = false,
+            decorFitsSystemWindows = false,
+        ),
+    ) {
+        Surface(
+            modifier = Modifier.fillMaxSize(),
+            color = MaterialTheme.colorScheme.surface,
+        ) {
             Column(
-                verticalArrangement = Arrangement.spacedBy(12.dp),
+                modifier = Modifier
+                    .fillMaxSize()
+                    .systemBarsPadding(),
             ) {
-                OutlinedTextField(
-                    modifier = Modifier.fillMaxWidth(),
-                    value = editor.name,
-                    onValueChange = onNameChange,
-                    label = { Text("Название") },
-                    isError = editor.nameError != null,
-                    supportingText = {
-                        editor.nameError?.let { Text(it) }
-                    },
-                    singleLine = true,
-                )
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = when {
+                                editor.isEditing -> "Редактировать упражнение"
+                                editor.isCopying -> "Новое упражнение из шаблона"
+                                else -> "Новое упражнение"
+                            },
+                            style = MaterialTheme.typography.titleLarge,
+                        )
+                        if (editor.isCopying) {
+                            Text(
+                                text = "Поля заполнены по выбранному упражнению",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }
 
-                OutlinedTextField(
-                    modifier = Modifier.fillMaxWidth(),
-                    value = editor.description,
-                    onValueChange = onDescriptionChange,
-                    label = { Text("Описание") },
-                    minLines = 3,
-                )
-
-                if (editor.isCopying) {
-                    ExerciseCopyTemplateSummary(editor = editor)
+                    TextButton(
+                        onClick = onDismiss,
+                        enabled = !editor.isSaving,
+                    ) {
+                        Text("Закрыть")
+                    }
                 }
 
-                if (editor.isEditing) {
-                    Row(
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .verticalScroll(rememberScrollState())
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    OutlinedTextField(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.End,
+                        value = editor.name,
+                        onValueChange = onNameChange,
+                        label = { Text("Наименование") },
+                        isError = editor.nameError != null,
+                        supportingText = {
+                            editor.nameError?.let { Text(it) }
+                        },
+                        singleLine = true,
+                    )
+
+                    OutlinedTextField(
+                        modifier = Modifier.fillMaxWidth(),
+                        value = editor.description,
+                        onValueChange = onDescriptionChange,
+                        label = { Text("Комментарий") },
+                        minLines = 3,
+                    )
+
+                    ExerciseEditorNavigationRow(
+                        title = "Мышцы",
+                        summary = muscleSummary.ifBlank { "Не указаны" },
+                        onClick = onMusclesClick,
+                    )
+
+                    ExerciseEditorExpandableSection(
+                        title = "Теги",
+                        summary = buildList {
+                            addAll(selectedTags.map { tag -> "#${tag.name}" })
+                            addAll(editor.pendingTagNames.map { name -> "#$name" })
+                        }.joinToString().ifBlank { "Не указаны" },
+                        expanded = tagsExpanded,
+                        onToggleExpanded = { tagsExpanded = !tagsExpanded },
                     ) {
-                        TextButton(onClick = onMusclesClick) {
-                            Text("Мышцы")
+                        if (allTags.isNotEmpty()) {
+                            LazyRow(
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            ) {
+                                items(
+                                    items = allTags,
+                                    key = { tag -> tag.id },
+                                ) { tag ->
+                                    FilterChip(
+                                        selected = tag.id in editor.selectedTagIds,
+                                        onClick = { onToggleTag(tag.id) },
+                                        label = { Text("#${tag.name}") },
+                                    )
+                                }
+                            }
                         }
 
-                        TextButton(onClick = onWorkoutsClick) {
-                            Text("Тренировки")
+                        if (editor.pendingTagNames.isNotEmpty()) {
+                            LazyRow(
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            ) {
+                                items(editor.pendingTagNames.toList()) { tagName ->
+                                    AssistChip(
+                                        onClick = { onRemovePendingTag(tagName) },
+                                        label = { Text("#$tagName ×") },
+                                    )
+                                }
+                            }
                         }
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            OutlinedTextField(
+                                value = editor.newTagName,
+                                onValueChange = onNewTagNameChange,
+                                modifier = Modifier.weight(1f),
+                                label = { Text("Новый тег") },
+                                singleLine = true,
+                                isError = editor.newTagNameError != null,
+                                supportingText = {
+                                    editor.newTagNameError?.let { Text(it) }
+                                },
+                            )
+                            TextButton(onClick = onAddTag) {
+                                Text("Добавить")
+                            }
+                        }
+                    }
+
+                    ExerciseEditorExpandableSection(
+                        title = "Альтернативы",
+                        summary = selectedAlternatives
+                            .joinToString { exercise -> exercise.name }
+                            .ifBlank { "Не указаны" },
+                        expanded = alternativesExpanded,
+                        onToggleExpanded = {
+                            alternativesExpanded = !alternativesExpanded
+                        },
+                    ) {
+                        val availableAlternatives = allExercises.filter { exercise ->
+                            exercise.id != editor.exerciseId
+                        }
+
+                        if (availableAlternatives.isEmpty()) {
+                            Text(
+                                text = "Других упражнений пока нет.",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        } else {
+                            LazyColumn(
+                                modifier = Modifier.heightIn(max = 220.dp),
+                                verticalArrangement = Arrangement.spacedBy(2.dp),
+                            ) {
+                                items(
+                                    items = availableAlternatives,
+                                    key = { exercise -> exercise.id },
+                                ) { exercise ->
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .clickable {
+                                                onToggleAlternative(exercise.id)
+                                            },
+                                        verticalAlignment = Alignment.CenterVertically,
+                                    ) {
+                                        Checkbox(
+                                            checked = exercise.id in editor
+                                                .selectedAlternativeExerciseDefinitionIds,
+                                            onCheckedChange = {
+                                                onToggleAlternative(exercise.id)
+                                            },
+                                        )
+                                        Text(exercise.name)
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    ExerciseEditorNavigationRow(
+                        title = "Изображения",
+                        summary = when (editor.images.size) {
+                            0 -> "Нет изображений"
+                            1 -> "1 изображение"
+                            else -> "${editor.images.size} изображений"
+                        },
+                        onClick = onImagesClick,
+                    )
+                }
+
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    horizontalArrangement = Arrangement.End,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    TextButton(
+                        onClick = onDismiss,
+                        enabled = !editor.isSaving,
+                    ) {
+                        Text("Отмена")
+                    }
+                    TextButton(
+                        onClick = onSave,
+                        enabled = !editor.isSaving,
+                    ) {
+                        Text(
+                            if (editor.isEditing) "Сохранить" else "Создать"
+                        )
                     }
                 }
             }
-        },
-        confirmButton = {
-            TextButton(onClick = onSave) {
-                Text("Сохранить")
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("Отмена")
-            }
-        },
-    )
+        }
+    }
 }
 
 @Composable
-private fun ExerciseCopyTemplateSummary(
-    editor: ExerciseEditorState,
+private fun ExerciseEditorNavigationRow(
+    title: String,
+    summary: String,
+    onClick: () -> Unit,
 ) {
-    Column(
-        verticalArrangement = Arrangement.spacedBy(4.dp),
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick),
     ) {
-        Text(
-            text = "Шаблон: ${editor.templateExerciseName}",
-            style = MaterialTheme.typography.labelLarge,
-        )
-
-        editor.templateTagNames
-            .takeIf { names -> names.isNotEmpty() }
-            ?.let { names ->
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = "Теги: ${names.joinToString { name -> "#$name" }}",
+                    text = title,
+                    style = MaterialTheme.typography.titleSmall,
+                )
+                Text(
+                    text = summary,
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 2,
                 )
             }
-
-        editor.templatePrimaryMuscles
-            .takeIf { muscles -> muscles.isNotEmpty() }
-            ?.let { muscles ->
-                Text(
-                    text = "Основные мышцы: ${muscles.joinToString { muscle -> muscle.displayName }}",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-
-        editor.templateSecondaryMuscles
-            .takeIf { muscles -> muscles.isNotEmpty() }
-            ?.let { muscles ->
-                Text(
-                    text = "Доп. мышцы: ${muscles.joinToString { muscle -> muscle.displayName }}",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-
-        editor.templateAlternativeNames
-            .takeIf { names -> names.isNotEmpty() }
-            ?.let { names ->
-                Text(
-                    text = "Альтернативы: ${names.joinToString()}",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-
-        if (editor.templateImagesCount > 0) {
             Text(
-                text = "Изображения: ${editor.templateImagesCount}",
-                style = MaterialTheme.typography.bodySmall,
+                text = "›",
+                style = MaterialTheme.typography.headlineSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
+    }
+}
 
-        Text(
-            text = "Эти данные будут скопированы при сохранении.",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
+@Composable
+private fun ExerciseEditorExpandableSection(
+    title: String,
+    summary: String,
+    expanded: Boolean,
+    onToggleExpanded: () -> Unit,
+    content: @Composable () -> Unit,
+) {
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(
+            modifier = Modifier.padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable(onClick = onToggleExpanded),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = title,
+                        style = MaterialTheme.typography.titleSmall,
+                    )
+                    Text(
+                        text = summary,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 2,
+                    )
+                }
+                Text(
+                    text = if (expanded) "⌃" else "⌄",
+                    style = MaterialTheme.typography.titleLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+
+            if (expanded) {
+                content()
+            }
+        }
+    }
+}
+
+@Composable
+private fun ExerciseEditorImagesDialog(
+    editor: ExerciseEditorState,
+    onAddImages: () -> Unit,
+    onEditCrop: (Long) -> Unit,
+    onSetCover: (Long) -> Unit,
+    onDelete: (Long) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(
+            usePlatformDefaultWidth = false,
+            decorFitsSystemWindows = false,
+        ),
+    ) {
+        Surface(
+            modifier = Modifier.fillMaxSize(),
+            color = MaterialTheme.colorScheme.surface,
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .systemBarsPadding(),
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "Изображения",
+                            style = MaterialTheme.typography.titleLarge,
+                        )
+                        Text(
+                            text = editor.name.ifBlank { "Новое упражнение" },
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    TextButton(onClick = onDismiss) {
+                        Text("Готово")
+                    }
+                }
+
+                if (editor.images.isEmpty()) {
+                    Column(
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxWidth(),
+                        verticalArrangement = Arrangement.Center,
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                    ) {
+                        Text("Изображений пока нет")
+                        TextButton(onClick = onAddImages) {
+                            Text("Добавить изображения")
+                        }
+                    }
+                } else {
+                    LazyColumn(
+                        modifier = Modifier
+                            .weight(1f)
+                            .padding(horizontal = 16.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp),
+                    ) {
+                        items(
+                            items = editor.images,
+                            key = { image -> image.key },
+                        ) { image ->
+                            Card(modifier = Modifier.fillMaxWidth()) {
+                                Row(
+                                    modifier = Modifier.padding(12.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    CroppedExerciseImage(
+                                        uri = image.uri,
+                                        cropZoom = image.cropZoom,
+                                        cropOffsetX = image.cropOffsetX,
+                                        cropOffsetY = image.cropOffsetY,
+                                        contentDescription = "Изображение упражнения",
+                                        modifier = Modifier
+                                            .size(96.dp)
+                                            .clip(RoundedCornerShape(12.dp)),
+                                    )
+
+                                    Column(
+                                        modifier = Modifier.weight(1f),
+                                        verticalArrangement = Arrangement.spacedBy(2.dp),
+                                    ) {
+                                        if (image.isCover) {
+                                            Text(
+                                                text = "Обложка",
+                                                style = MaterialTheme.typography.labelLarge,
+                                                color = MaterialTheme.colorScheme.primary,
+                                            )
+                                        }
+                                        TextButton(onClick = { onEditCrop(image.key) }) {
+                                            Text("Настроить отображение")
+                                        }
+                                        if (!image.isCover) {
+                                            TextButton(onClick = { onSetCover(image.key) }) {
+                                                Text("Сделать обложкой")
+                                            }
+                                        }
+                                        TextButton(onClick = { onDelete(image.key) }) {
+                                            Text("Удалить")
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    TextButton(
+                        onClick = onAddImages,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                    ) {
+                        Text("Добавить изображения")
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -994,23 +1381,58 @@ private fun ExerciseMusclesDialog(
     onDismiss: () -> Unit,
     onSave: () -> Unit,
 ) {
-    AlertDialog(
+    Dialog(
         onDismissRequest = onDismiss,
-        title = {
-            Text("Мышцы: ${muscleEditor.exerciseName}")
-        },
-        text = {
+        properties = DialogProperties(
+            usePlatformDefaultWidth = false,
+            decorFitsSystemWindows = false,
+        ),
+    ) {
+        Surface(
+            modifier = Modifier.fillMaxSize(),
+            color = MaterialTheme.colorScheme.surface,
+        ) {
             Column(
-                verticalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier
+                    .fillMaxSize()
+                    .systemBarsPadding(),
             ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "Мышцы",
+                            style = MaterialTheme.typography.titleLarge,
+                        )
+                        Text(
+                            text = muscleEditor.exerciseName,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    TextButton(onClick = onDismiss) {
+                        Text("Отмена")
+                    }
+                    TextButton(onClick = onSave) {
+                        Text("Готово")
+                    }
+                }
+
                 Text(
                     text = "Основная нагрузка учитывается за 1 балл, дополнительная — за 0,5 балла.",
+                    modifier = Modifier.padding(horizontal = 16.dp),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
 
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Spacer(modifier = Modifier.weight(1f))
@@ -1027,7 +1449,9 @@ private fun ExerciseMusclesDialog(
                 }
 
                 LazyColumn(
-                    modifier = Modifier.heightIn(max = 360.dp),
+                    modifier = Modifier
+                        .weight(1f)
+                        .padding(horizontal = 16.dp),
                     verticalArrangement = Arrangement.spacedBy(4.dp),
                 ) {
                     items(
@@ -1067,18 +1491,8 @@ private fun ExerciseMusclesDialog(
                     }
                 }
             }
-        },
-        confirmButton = {
-            TextButton(onClick = onSave) {
-                Text("Сохранить")
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("Отмена")
-            }
-        },
-    )
+        }
+    }
 }
 
 @Composable

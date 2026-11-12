@@ -16,6 +16,7 @@ import ru.trainingapp.core.database.entity.ExerciseImageEntity
 import ru.trainingapp.core.domain.repository.ExerciseDefinitionRepository
 import ru.trainingapp.core.model.ExerciseDefinition
 import ru.trainingapp.core.model.ExerciseDefinitionAlternative
+import ru.trainingapp.core.model.ExerciseImageEdit
 import ru.trainingapp.core.model.MuscleGroup
 import ru.trainingapp.core.model.MuscleLoadType
 import javax.inject.Inject
@@ -121,10 +122,10 @@ class RoomExerciseDefinitionRepository @Inject constructor(
     override suspend fun createExerciseDefinition(
         name: String,
         description: String,
-    ) {
+    ): Long {
         val now = System.currentTimeMillis()
 
-        exerciseDefinitionDao.insertExerciseDefinition(
+        return exerciseDefinitionDao.insertExerciseDefinitionAndGetId(
             ExerciseDefinitionEntity(
                 name = name.trim(),
                 description = description.trim(),
@@ -380,6 +381,96 @@ class RoomExerciseDefinitionRepository @Inject constructor(
                     updatedAt = now,
                 )
             )
+        }
+    }
+
+    override suspend fun replaceExerciseImages(
+        exerciseDefinitionId: Long,
+        images: List<ExerciseImageEdit>,
+    ) {
+        val currentExercise = exerciseDefinitionDao
+            .getExerciseDefinitionById(exerciseDefinitionId)
+            ?: return
+
+        val currentImages = exerciseImageDao
+            .getImagesByExerciseDefinitionId(exerciseDefinitionId)
+        val currentImagesById = currentImages.associateBy { image -> image.id }
+        val now = System.currentTimeMillis()
+
+        val coverIndex = images
+            .indexOfFirst { image -> image.isCover }
+            .takeIf { index -> index >= 0 }
+            ?: images.indices.firstOrNull()
+
+        val preparedImages = images.mapIndexedNotNull { index, image ->
+            val existing = image.sourceImageId
+                ?.let { imageId -> currentImagesById[imageId] }
+
+            if (existing != null) {
+                existing.copy(
+                    sortOrder = index,
+                    isCover = coverIndex == index,
+                    cropZoom = image.cropZoom.coerceIn(1f, 4f),
+                    cropOffsetX = image.cropOffsetX.coerceIn(-1f, 1f),
+                    cropOffsetY = image.cropOffsetY.coerceIn(-1f, 1f),
+                    updatedAt = now,
+                )
+            } else {
+                val copiedUri = exerciseImageFileStorage.copyStoredImageToExercise(
+                    exerciseDefinitionId = exerciseDefinitionId,
+                    sourceUriString = image.uri,
+                ) ?: return@mapIndexedNotNull null
+
+                ExerciseImageEntity(
+                    exerciseDefinitionId = exerciseDefinitionId,
+                    uri = copiedUri,
+                    sortOrder = index,
+                    isCover = coverIndex == index,
+                    cropZoom = image.cropZoom.coerceIn(1f, 4f),
+                    cropOffsetX = image.cropOffsetX.coerceIn(-1f, 1f),
+                    cropOffsetY = image.cropOffsetY.coerceIn(-1f, 1f),
+                    createdAt = now,
+                    updatedAt = now,
+                )
+            }
+        }.let { prepared ->
+            if (prepared.isNotEmpty() && prepared.none { image -> image.isCover }) {
+                prepared.mapIndexed { index, image ->
+                    image.copy(isCover = index == 0)
+                }
+            } else {
+                prepared
+            }
+        }
+
+        val retainedExistingIds = preparedImages
+            .map { image -> image.id }
+            .filter { imageId -> imageId > 0L }
+            .toSet()
+        val removedImages = currentImages.filter { image ->
+            image.id !in retainedExistingIds
+        }
+
+        database.withTransaction {
+            preparedImages.forEach { image ->
+                if (image.id > 0L) {
+                    exerciseImageDao.updateImage(image)
+                } else {
+                    exerciseImageDao.insertImage(image)
+                }
+            }
+
+            removedImages.forEach { image ->
+                exerciseImageDao.deleteImage(image.id)
+            }
+
+            exerciseDefinitionDao.updateExerciseDefinition(
+                currentExercise.copy(updatedAt = now)
+            )
+        }
+
+        removedImages.forEach { image ->
+            exerciseImageFileStorage.deleteByUri(image.uri)
         }
     }
 

@@ -16,13 +16,13 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import ru.trainingapp.core.domain.exercise.AddExerciseImagesUseCase
 import ru.trainingapp.core.domain.exercise.ArchiveExerciseDefinitionUseCase
-import ru.trainingapp.core.domain.exercise.CreateExerciseDefinitionFromTemplateUseCase
 import ru.trainingapp.core.domain.exercise.CreateExerciseDefinitionUseCase
 import ru.trainingapp.core.domain.exercise.DeleteExerciseImageUseCase
 import ru.trainingapp.core.domain.exercise.ObserveExerciseDefinitionsUseCase
 import ru.trainingapp.core.domain.exercise.ReplaceExerciseDefinitionAlternativesUseCase
 import ru.trainingapp.core.domain.exercise.ReplaceExerciseDefinitionMusclesUseCase
 import ru.trainingapp.core.domain.exercise.ReplaceExerciseDefinitionTagsUseCase
+import ru.trainingapp.core.domain.exercise.ReplaceExerciseImagesUseCase
 import ru.trainingapp.core.domain.exercise.SetExerciseCoverImageUseCase
 import ru.trainingapp.core.domain.exercise.UpdateExerciseDefinitionUseCase
 import ru.trainingapp.core.domain.exercise.UpdateExerciseImageCropUseCase
@@ -36,6 +36,7 @@ import ru.trainingapp.core.domain.workout.RemoveExerciseFromWorkoutUseCase
 import ru.trainingapp.core.domain.tag.CreateTagUseCase
 import ru.trainingapp.core.domain.tag.ObserveTagsUseCase
 import ru.trainingapp.core.model.ExerciseDefinition
+import ru.trainingapp.core.model.ExerciseImageEdit
 import ru.trainingapp.core.model.MuscleGroup
 import ru.trainingapp.core.model.Tag
 import ru.trainingapp.core.model.Workout
@@ -49,13 +50,13 @@ class ExerciseCatalogViewModel @Inject constructor(
     observeWorkoutUseCase: ObserveWorkoutUseCase,
     observeExerciseWorkoutMembershipUseCase: ObserveExerciseWorkoutMembershipUseCase,
     private val createExerciseDefinitionUseCase: CreateExerciseDefinitionUseCase,
-    private val createExerciseDefinitionFromTemplateUseCase: CreateExerciseDefinitionFromTemplateUseCase,
     private val updateExerciseDefinitionUseCase: UpdateExerciseDefinitionUseCase,
     private val archiveExerciseDefinitionUseCase: ArchiveExerciseDefinitionUseCase,
     private val createTagUseCase: CreateTagUseCase,
     private val replaceExerciseDefinitionTagsUseCase: ReplaceExerciseDefinitionTagsUseCase,
     private val replaceExerciseDefinitionAlternativesUseCase: ReplaceExerciseDefinitionAlternativesUseCase,
     private val replaceExerciseDefinitionMusclesUseCase: ReplaceExerciseDefinitionMusclesUseCase,
+    private val replaceExerciseImagesUseCase: ReplaceExerciseImagesUseCase,
     private val addExerciseImagesUseCase: AddExerciseImagesUseCase,
     private val setExerciseCoverImageUseCase: SetExerciseCoverImageUseCase,
     private val updateExerciseImageCropUseCase: UpdateExerciseImageCropUseCase,
@@ -67,6 +68,8 @@ class ExerciseCatalogViewModel @Inject constructor(
 ) : ViewModel() {
 
     private val editorState = MutableStateFlow(ExerciseEditorState())
+
+    private var nextDraftImageKey = -1L
 
     private val selectedFilterTagIds = MutableStateFlow<Set<Long>>(emptySet())
 
@@ -183,35 +186,65 @@ class ExerciseCatalogViewModel @Inject constructor(
         )
 
     fun onAddExerciseClick() {
+        nextDraftImageKey = -1L
         editorState.value = ExerciseEditorState(
             isVisible = true,
-            exerciseId = null,
             name = "",
             description = "",
         )
     }
 
     fun onEditExerciseClick(exercise: ExerciseDefinition) {
+        nextDraftImageKey = -1L
         editorState.value = ExerciseEditorState(
             isVisible = true,
             exerciseId = exercise.id,
             name = exercise.name,
             description = exercise.description,
+            selectedTagIds = exercise.tags.map { tag -> tag.id }.toSet(),
+            selectedAlternativeExerciseDefinitionIds = exercise.alternatives
+                .map { alternative -> alternative.id }
+                .toSet(),
+            selectedPrimaryMuscleGroups = exercise.muscles.toSet(),
+            selectedSecondaryMuscleGroups = exercise.secondaryMuscles.toSet(),
+            images = exercise.images.map { image ->
+                ExerciseEditorImageState(
+                    key = image.id,
+                    sourceImageId = image.id,
+                    uri = image.uri,
+                    isCover = image.isCover,
+                    cropZoom = image.cropZoom,
+                    cropOffsetX = image.cropOffsetX,
+                    cropOffsetY = image.cropOffsetY,
+                )
+            },
         )
     }
 
     fun onCopyExerciseClick(exercise: ExerciseDefinition) {
+        nextDraftImageKey = -1L
         editorState.value = ExerciseEditorState(
             isVisible = true,
             templateExerciseId = exercise.id,
-            templateExerciseName = exercise.name,
             name = buildCopyExerciseName(exercise.name),
             description = exercise.description,
-            templateTagNames = exercise.tags.map { tag -> tag.name },
-            templatePrimaryMuscles = exercise.muscles,
-            templateSecondaryMuscles = exercise.secondaryMuscles,
-            templateAlternativeNames = exercise.alternatives.map { alternative -> alternative.name },
-            templateImagesCount = exercise.images.size,
+            selectedTagIds = exercise.tags.map { tag -> tag.id }.toSet(),
+            selectedAlternativeExerciseDefinitionIds = exercise.alternatives
+                .map { alternative -> alternative.id }
+                .toSet(),
+            selectedPrimaryMuscleGroups = exercise.muscles.toSet(),
+            selectedSecondaryMuscleGroups = exercise.secondaryMuscles.toSet(),
+            images = exercise.images.map { image ->
+                ExerciseEditorImageState(
+                    key = nextDraftImageKey--,
+                    sourceImageId = null,
+                    uri = image.uri,
+                    isCover = image.isCover,
+                    cropZoom = image.cropZoom,
+                    cropOffsetX = image.cropOffsetX,
+                    cropOffsetY = image.cropOffsetY,
+                )
+            },
         )
     }
 
@@ -275,8 +308,172 @@ class ExerciseCatalogViewModel @Inject constructor(
         editorState.value = editorState.value.copy(description = value)
     }
 
+    fun onEditorToggleTag(tagId: Long) {
+        val current = editorState.value
+        editorState.value = current.copy(
+            selectedTagIds = current.selectedTagIds.toggle(tagId),
+        )
+    }
+
+    fun onEditorNewTagNameChange(value: String) {
+        editorState.value = editorState.value.copy(
+            newTagName = value,
+            newTagNameError = null,
+        )
+    }
+
+    fun onEditorAddTag() {
+        val current = editorState.value
+        val normalizedName = current.newTagName
+            .trim()
+            .removePrefix("#")
+            .trim()
+
+        if (normalizedName.isBlank()) {
+            editorState.value = current.copy(
+                newTagNameError = "Название тега обязательно",
+            )
+            return
+        }
+
+        val existingTag = uiState.value.allTags.firstOrNull { tag ->
+            tag.name.equals(normalizedName, ignoreCase = true)
+        }
+        val existingPendingTag = current.pendingTagNames.firstOrNull { tagName ->
+            tagName.equals(normalizedName, ignoreCase = true)
+        }
+
+        editorState.value = when {
+            existingTag != null -> current.copy(
+                selectedTagIds = current.selectedTagIds + existingTag.id,
+                newTagName = "",
+                newTagNameError = null,
+            )
+            existingPendingTag != null -> current.copy(
+                newTagName = "",
+                newTagNameError = null,
+            )
+            else -> current.copy(
+                pendingTagNames = current.pendingTagNames + normalizedName,
+                newTagName = "",
+                newTagNameError = null,
+            )
+        }
+    }
+
+    fun onEditorRemovePendingTag(tagName: String) {
+        val current = editorState.value
+        editorState.value = current.copy(
+            pendingTagNames = current.pendingTagNames - tagName,
+        )
+    }
+
+    fun onEditorToggleAlternative(exerciseDefinitionId: Long) {
+        val current = editorState.value
+        editorState.value = current.copy(
+            selectedAlternativeExerciseDefinitionIds = current
+                .selectedAlternativeExerciseDefinitionIds
+                .toggle(exerciseDefinitionId),
+        )
+    }
+
+    fun onEditorMusclesClick() {
+        val editor = editorState.value
+        muscleEditorState.value = ExerciseMuscleEditorState(
+            isVisible = true,
+            exerciseDefinitionId = editor.exerciseId ?: 0L,
+            exerciseName = editor.name.ifBlank { "Новое упражнение" },
+            selectedPrimaryMuscleGroups = editor.selectedPrimaryMuscleGroups,
+            selectedSecondaryMuscleGroups = editor.selectedSecondaryMuscleGroups,
+        )
+    }
+
+    fun onEditorImagesClick() {
+        editorState.value = editorState.value.copy(isImagesEditorVisible = true)
+    }
+
+    fun onDismissEditorImages() {
+        editorState.value = editorState.value.copy(
+            isImagesEditorVisible = false,
+            cropImageKey = null,
+        )
+    }
+
+    fun onEditorImagesSelected(uriStrings: List<String>) {
+        if (uriStrings.isEmpty()) return
+
+        val current = editorState.value
+        val shouldFirstBecomeCover = current.images.none { image -> image.isCover }
+        val newImages = uriStrings.mapIndexed { index, uri ->
+            ExerciseEditorImageState(
+                key = nextDraftImageKey--,
+                uri = uri,
+                isCover = shouldFirstBecomeCover && index == 0,
+            )
+        }
+
+        editorState.value = current.copy(images = current.images + newImages)
+    }
+
+    fun onEditorSetCoverImage(imageKey: Long) {
+        val current = editorState.value
+        editorState.value = current.copy(
+            images = current.images.map { image ->
+                image.copy(isCover = image.key == imageKey)
+            },
+        )
+    }
+
+    fun onEditorDeleteImage(imageKey: Long) {
+        val current = editorState.value
+        val remaining = current.images.filterNot { image -> image.key == imageKey }
+        val normalized = if (remaining.isNotEmpty() && remaining.none { image -> image.isCover }) {
+            remaining.mapIndexed { index, image -> image.copy(isCover = index == 0) }
+        } else {
+            remaining
+        }
+
+        editorState.value = current.copy(
+            images = normalized,
+            cropImageKey = current.cropImageKey.takeIf { it != imageKey },
+        )
+    }
+
+    fun onEditorOpenImageCrop(imageKey: Long) {
+        if (editorState.value.images.none { image -> image.key == imageKey }) return
+        editorState.value = editorState.value.copy(cropImageKey = imageKey)
+    }
+
+    fun onEditorDismissImageCrop() {
+        editorState.value = editorState.value.copy(cropImageKey = null)
+    }
+
+    fun onEditorSaveImageCrop(
+        imageKey: Long,
+        cropZoom: Float,
+        cropOffsetX: Float,
+        cropOffsetY: Float,
+    ) {
+        val current = editorState.value
+        editorState.value = current.copy(
+            images = current.images.map { image ->
+                if (image.key == imageKey) {
+                    image.copy(
+                        cropZoom = cropZoom.coerceIn(1f, 4f),
+                        cropOffsetX = cropOffsetX.coerceIn(-1f, 1f),
+                        cropOffsetY = cropOffsetY.coerceIn(-1f, 1f),
+                    )
+                } else {
+                    image
+                }
+            },
+            cropImageKey = null,
+        )
+    }
+
     fun onDismissEditor() {
         editorState.value = ExerciseEditorState()
+        muscleEditorState.value = ExerciseMuscleEditorState()
     }
 
     fun onSaveExerciseClick() {
@@ -288,31 +485,66 @@ class ExerciseCatalogViewModel @Inject constructor(
             return
         }
 
+        if (editor.isSaving) return
+
+        editorState.value = editor.copy(isSaving = true)
+
         viewModelScope.launch {
-            val exerciseId = editor.exerciseId
+            val exerciseId = editor.exerciseId ?: createExerciseDefinitionUseCase(
+                name = editor.name,
+                description = editor.description,
+            )
 
-            if (exerciseId == null) {
-                val templateExerciseId = editor.templateExerciseId
+            if (exerciseId <= 0L) {
+                editorState.value = editor.copy(
+                    isSaving = false,
+                    nameError = "Не удалось сохранить упражнение",
+                )
+                return@launch
+            }
 
-                if (templateExerciseId == null) {
-                    createExerciseDefinitionUseCase(
-                        name = editor.name,
-                        description = editor.description,
-                    )
-                } else {
-                    createExerciseDefinitionFromTemplateUseCase(
-                        templateExerciseDefinitionId = templateExerciseId,
-                        name = editor.name,
-                        description = editor.description,
-                    )
-                }
-            } else {
+            if (editor.exerciseId != null) {
                 updateExerciseDefinitionUseCase(
                     id = exerciseId,
                     name = editor.name,
                     description = editor.description,
                 )
             }
+
+            val createdTagIds = editor.pendingTagNames
+                .map { tagName -> createTagUseCase(tagName) }
+                .filter { tagId -> tagId > 0L }
+                .toSet()
+
+            replaceExerciseDefinitionTagsUseCase(
+                exerciseDefinitionId = exerciseId,
+                tagIds = editor.selectedTagIds + createdTagIds,
+            )
+
+            replaceExerciseDefinitionAlternativesUseCase(
+                exerciseDefinitionId = exerciseId,
+                alternativeExerciseDefinitionIds = editor.selectedAlternativeExerciseDefinitionIds,
+            )
+
+            replaceExerciseDefinitionMusclesUseCase(
+                exerciseDefinitionId = exerciseId,
+                primaryMuscleGroups = editor.selectedPrimaryMuscleGroups,
+                secondaryMuscleGroups = editor.selectedSecondaryMuscleGroups,
+            )
+
+            replaceExerciseImagesUseCase(
+                exerciseDefinitionId = exerciseId,
+                images = editor.images.map { image ->
+                    ExerciseImageEdit(
+                        sourceImageId = image.sourceImageId,
+                        uri = image.uri,
+                        isCover = image.isCover,
+                        cropZoom = image.cropZoom,
+                        cropOffsetX = image.cropOffsetX,
+                        cropOffsetY = image.cropOffsetY,
+                    )
+                },
+            )
 
             editorState.value = ExerciseEditorState()
         }
@@ -475,16 +707,13 @@ class ExerciseCatalogViewModel @Inject constructor(
 
     fun onSaveExerciseMusclesClick() {
         val current = muscleEditorState.value
+        val editor = editorState.value
 
-        viewModelScope.launch {
-            replaceExerciseDefinitionMusclesUseCase(
-                exerciseDefinitionId = current.exerciseDefinitionId,
-                primaryMuscleGroups = current.selectedPrimaryMuscleGroups,
-                secondaryMuscleGroups = current.selectedSecondaryMuscleGroups,
-            )
-
-            muscleEditorState.value = ExerciseMuscleEditorState()
-        }
+        editorState.value = editor.copy(
+            selectedPrimaryMuscleGroups = current.selectedPrimaryMuscleGroups,
+            selectedSecondaryMuscleGroups = current.selectedSecondaryMuscleGroups,
+        )
+        muscleEditorState.value = ExerciseMuscleEditorState()
     }
 
     fun onToggleAlternativeSelection(alternativeExerciseDefinitionId: Long) {
@@ -751,15 +980,20 @@ data class ExerciseEditorState(
     val isVisible: Boolean = false,
     val exerciseId: Long? = null,
     val templateExerciseId: Long? = null,
-    val templateExerciseName: String = "",
     val name: String = "",
     val description: String = "",
     val nameError: String? = null,
-    val templateTagNames: List<String> = emptyList(),
-    val templatePrimaryMuscles: List<MuscleGroup> = emptyList(),
-    val templateSecondaryMuscles: List<MuscleGroup> = emptyList(),
-    val templateAlternativeNames: List<String> = emptyList(),
-    val templateImagesCount: Int = 0,
+    val selectedTagIds: Set<Long> = emptySet(),
+    val pendingTagNames: Set<String> = emptySet(),
+    val newTagName: String = "",
+    val newTagNameError: String? = null,
+    val selectedAlternativeExerciseDefinitionIds: Set<Long> = emptySet(),
+    val selectedPrimaryMuscleGroups: Set<MuscleGroup> = emptySet(),
+    val selectedSecondaryMuscleGroups: Set<MuscleGroup> = emptySet(),
+    val images: List<ExerciseEditorImageState> = emptyList(),
+    val isImagesEditorVisible: Boolean = false,
+    val cropImageKey: Long? = null,
+    val isSaving: Boolean = false,
 ) {
     val isEditing: Boolean
         get() = exerciseId != null
@@ -767,6 +1001,16 @@ data class ExerciseEditorState(
     val isCopying: Boolean
         get() = templateExerciseId != null
 }
+
+data class ExerciseEditorImageState(
+    val key: Long,
+    val sourceImageId: Long? = null,
+    val uri: String,
+    val isCover: Boolean,
+    val cropZoom: Float = 1f,
+    val cropOffsetX: Float = 0f,
+    val cropOffsetY: Float = 0f,
+)
 
 data class ExerciseTagEditorState(
     val isVisible: Boolean = false,
