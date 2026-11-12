@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -20,8 +21,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Close
@@ -937,7 +936,11 @@ private fun ExerciseEditorDialog(
         ),
     ) {
         Surface(
-            modifier = Modifier.fillMaxSize(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .fillMaxHeight(0.94f)
+                .padding(horizontal = 8.dp),
+            shape = RoundedCornerShape(24.dp),
             color = MaterialTheme.colorScheme.surface,
         ) {
             Column(
@@ -977,162 +980,174 @@ private fun ExerciseEditorDialog(
                     }
                 }
 
-                Column(
-                    modifier = Modifier
-                        .weight(1f)
-                        .verticalScroll(rememberScrollState())
-                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                LazyColumn(
+                    modifier = Modifier.weight(1f),
+                    contentPadding = androidx.compose.foundation.layout.PaddingValues(
+                        horizontal = 16.dp,
+                        vertical = 8.dp,
+                    ),
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
-                    OutlinedTextField(
-                        modifier = Modifier.fillMaxWidth(),
-                        value = editor.name,
-                        onValueChange = onNameChange,
-                        label = { Text("Наименование") },
-                        isError = editor.nameError != null,
-                        supportingText = {
-                            editor.nameError?.let { Text(it) }
-                        },
-                        singleLine = true,
-                    )
-
-                    OutlinedTextField(
-                        modifier = Modifier.fillMaxWidth(),
-                        value = editor.description,
-                        onValueChange = onDescriptionChange,
-                        label = { Text("Комментарий") },
-                        minLines = 3,
-                    )
-
-                    ExerciseEditorNavigationRow(
-                        title = "Мышцы",
-                        summary = muscleSummary.ifBlank { "Не указаны" },
-                        onClick = onMusclesClick,
-                    )
-
-                    ExerciseEditorExpandableSection(
-                        title = "Теги",
-                        summary = buildList {
-                            addAll(selectedTags.map { tag -> "#${tag.name}" })
-                            addAll(editor.pendingTagNames.map { name -> "#$name" })
-                        }.joinToString().ifBlank { "Не указаны" },
-                        expanded = tagsExpanded,
-                        onToggleExpanded = { tagsExpanded = !tagsExpanded },
-                    ) {
-                        if (allTags.isNotEmpty()) {
-                            LazyRow(
-                                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            ) {
-                                items(
-                                    items = allTags,
-                                    key = { tag -> tag.id },
-                                ) { tag ->
-                                    FilterChip(
-                                        selected = tag.id in editor.selectedTagIds,
-                                        onClick = { onToggleTag(tag.id) },
-                                        label = { Text("#${tag.name}") },
-                                    )
-                                }
-                            }
-                        }
-
-                        if (editor.pendingTagNames.isNotEmpty()) {
-                            LazyRow(
-                                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            ) {
-                                items(editor.pendingTagNames.toList()) { tagName ->
-                                    AssistChip(
-                                        onClick = { onRemovePendingTag(tagName) },
-                                        label = { Text("#$tagName ×") },
-                                    )
-                                }
-                            }
-                        }
-
-                        Row(
+                    item {
+                        OutlinedTextField(
                             modifier = Modifier.fillMaxWidth(),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            value = editor.name,
+                            onValueChange = onNameChange,
+                            label = { Text("Наименование") },
+                            isError = editor.nameError != null,
+                            supportingText = {
+                                editor.nameError?.let { Text(it) }
+                            },
+                            singleLine = true,
+                        )
+                    }
+
+                    item {
+                        OutlinedTextField(
+                            modifier = Modifier.fillMaxWidth(),
+                            value = editor.description,
+                            onValueChange = onDescriptionChange,
+                            label = { Text("Комментарий") },
+                            minLines = 3,
+                        )
+                    }
+
+                    item {
+                        ExerciseEditorNavigationRow(
+                            title = "Мышцы",
+                            summary = muscleSummary.ifBlank { "Не указаны" },
+                            onClick = onMusclesClick,
+                        )
+                    }
+
+                    item {
+                        ExerciseEditorExpandableSection(
+                            title = "Теги",
+                            summary = buildList {
+                                addAll(selectedTags.map { tag -> "#${tag.name}" })
+                                addAll(editor.pendingTagNames.map { name -> "#$name" })
+                            }.joinToString().ifBlank { "Не указаны" },
+                            expanded = tagsExpanded,
+                            onToggleExpanded = { tagsExpanded = !tagsExpanded },
                         ) {
-                            OutlinedTextField(
-                                value = editor.newTagName,
-                                onValueChange = onNewTagNameChange,
-                                modifier = Modifier.weight(1f),
-                                label = { Text("Новый тег") },
-                                singleLine = true,
-                                isError = editor.newTagNameError != null,
-                                supportingText = {
-                                    editor.newTagNameError?.let { Text(it) }
-                                },
-                            )
-                            TextButton(onClick = onAddTag) {
-                                Text("Добавить")
+                            if (allTags.isNotEmpty()) {
+                                LazyRow(
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                ) {
+                                    items(
+                                        items = allTags,
+                                        key = { tag -> tag.id },
+                                    ) { tag ->
+                                        FilterChip(
+                                            selected = tag.id in editor.selectedTagIds,
+                                            onClick = { onToggleTag(tag.id) },
+                                            label = { Text("#${tag.name}") },
+                                        )
+                                    }
+                                }
+                            }
+
+                            if (editor.pendingTagNames.isNotEmpty()) {
+                                LazyRow(
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                ) {
+                                    items(editor.pendingTagNames.toList()) { tagName ->
+                                        AssistChip(
+                                            onClick = { onRemovePendingTag(tagName) },
+                                            label = { Text("#$tagName ×") },
+                                        )
+                                    }
+                                }
+                            }
+
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            ) {
+                                OutlinedTextField(
+                                    value = editor.newTagName,
+                                    onValueChange = onNewTagNameChange,
+                                    modifier = Modifier.weight(1f),
+                                    label = { Text("Новый тег") },
+                                    singleLine = true,
+                                    isError = editor.newTagNameError != null,
+                                    supportingText = {
+                                        editor.newTagNameError?.let { Text(it) }
+                                    },
+                                )
+                                TextButton(onClick = onAddTag) {
+                                    Text("Добавить")
+                                }
                             }
                         }
                     }
 
-                    ExerciseEditorExpandableSection(
-                        title = "Альтернативы",
-                        summary = selectedAlternatives
-                            .joinToString { exercise -> exercise.name }
-                            .ifBlank { "Не указаны" },
-                        expanded = alternativesExpanded,
-                        onToggleExpanded = {
-                            alternativesExpanded = !alternativesExpanded
-                        },
-                    ) {
-                        val availableAlternatives = allExercises.filter { exercise ->
-                            exercise.id != editor.exerciseId
-                        }
+                    item {
+                        ExerciseEditorExpandableSection(
+                            title = "Альтернативы",
+                            summary = selectedAlternatives
+                                .joinToString { exercise -> exercise.name }
+                                .ifBlank { "Не указаны" },
+                            expanded = alternativesExpanded,
+                            onToggleExpanded = {
+                                alternativesExpanded = !alternativesExpanded
+                            },
+                        ) {
+                            val availableAlternatives = allExercises.filter { exercise ->
+                                exercise.id != editor.exerciseId
+                            }
 
-                        if (availableAlternatives.isEmpty()) {
-                            Text(
-                                text = "Других упражнений пока нет.",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        } else {
-                            LazyColumn(
-                                modifier = Modifier.heightIn(max = 220.dp),
-                                verticalArrangement = Arrangement.spacedBy(2.dp),
-                            ) {
-                                items(
-                                    items = availableAlternatives,
-                                    key = { exercise -> exercise.id },
-                                ) { exercise ->
-                                    Row(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .clickable {
-                                                onToggleAlternative(exercise.id)
-                                            },
-                                        verticalAlignment = Alignment.CenterVertically,
-                                    ) {
-                                        Checkbox(
-                                            checked = exercise.id in editor
-                                                .selectedAlternativeExerciseDefinitionIds,
-                                            onCheckedChange = {
-                                                onToggleAlternative(exercise.id)
-                                            },
-                                        )
-                                        Text(exercise.name)
+                            if (availableAlternatives.isEmpty()) {
+                                Text(
+                                    text = "Других упражнений пока нет.",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            } else {
+                                LazyColumn(
+                                    modifier = Modifier.height(220.dp),
+                                    verticalArrangement = Arrangement.spacedBy(2.dp),
+                                ) {
+                                    items(
+                                        items = availableAlternatives,
+                                        key = { exercise -> exercise.id },
+                                    ) { exercise ->
+                                        Row(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .clickable {
+                                                    onToggleAlternative(exercise.id)
+                                                },
+                                            verticalAlignment = Alignment.CenterVertically,
+                                        ) {
+                                            Checkbox(
+                                                checked = exercise.id in editor
+                                                    .selectedAlternativeExerciseDefinitionIds,
+                                                onCheckedChange = {
+                                                    onToggleAlternative(exercise.id)
+                                                },
+                                            )
+                                            Text(exercise.name)
+                                        }
                                     }
                                 }
                             }
                         }
                     }
 
-                    ExerciseEditorNavigationRow(
-                        title = "Изображения",
-                        summary = when (editor.images.size) {
-                            0 -> "Нет изображений"
-                            1 -> "1 изображение"
-                            else -> "${editor.images.size} изображений"
-                        },
-                        onClick = onImagesClick,
-                    )
+                    item {
+                        ExerciseEditorNavigationRow(
+                            title = "Изображения",
+                            summary = when (editor.images.size) {
+                                0 -> "Нет изображений"
+                                1 -> "1 изображение"
+                                else -> "${editor.images.size} изображений"
+                            },
+                            onClick = onImagesClick,
+                        )
+                    }
                 }
-
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
