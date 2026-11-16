@@ -13,12 +13,14 @@ import javax.inject.Inject
 class TrainingPackZipWriter @Inject constructor(
     @ApplicationContext private val context: Context,
     private val imageExporter: TrainingPackImageExporter,
+    private val videoExporter: TrainingPackVideoExporter,
 ) {
 
     suspend fun write(
         destinationUri: String,
         manifestJson: String,
         imageSources: List<TrainingPackImageSource>,
+        videoSources: List<TrainingPackVideoSource> = emptyList(),
     ) = withContext(Dispatchers.IO) {
         val outputStream = context.contentResolver.openOutputStream(
             Uri.parse(destinationUri),
@@ -43,11 +45,28 @@ class TrainingPackZipWriter @Inject constructor(
 
                 zip.closeEntry()
             }
+
+            videoSources.forEach { videoSource ->
+                require(isSafeArchivePath(videoSource.path)) {
+                    "Некорректный путь видео в архиве: ${videoSource.path}"
+                }
+
+                zip.putNextEntry(ZipEntry(videoSource.path))
+
+                videoExporter.openInputStream(videoSource.sourceUri).use { input ->
+                    input.copyTo(zip)
+                }
+
+                zip.closeEntry()
+            }
         }
     }
 
     private fun isSafeArchivePath(path: String): Boolean {
-        if (!path.startsWith(IMAGES_DIRECTORY_PREFIX)) {
+        if (
+            !path.startsWith(IMAGES_DIRECTORY_PREFIX) &&
+            !path.startsWith(VIDEOS_DIRECTORY_PREFIX)
+        ) {
             return false
         }
 
@@ -63,10 +82,16 @@ class TrainingPackZipWriter @Inject constructor(
     companion object {
         const val MANIFEST_FILE_NAME = "manifest.json"
         const val IMAGES_DIRECTORY_PREFIX = "images/"
+        const val VIDEOS_DIRECTORY_PREFIX = "videos/"
     }
 }
 
 data class TrainingPackImageSource(
+    val path: String,
+    val sourceUri: String,
+)
+
+data class TrainingPackVideoSource(
     val path: String,
     val sourceUri: String,
 )

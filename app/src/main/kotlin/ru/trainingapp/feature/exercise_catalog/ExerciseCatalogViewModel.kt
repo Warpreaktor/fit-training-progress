@@ -849,6 +849,7 @@ class ExerciseCatalogViewModel @Inject constructor(
                         append("Импортировано упражнений: ${result.createdExercises}")
                         append(", тегов: ${result.createdTags}")
                         append(", картинок: ${result.createdImages}")
+                        append(", видео: ${result.createdVideos}")
 
                         if (result.warnings.isNotEmpty()) {
                             append(", предупреждений: ${result.warnings.size}")

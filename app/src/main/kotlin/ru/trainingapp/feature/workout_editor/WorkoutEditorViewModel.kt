@@ -109,9 +109,17 @@ class WorkoutEditorViewModel @Inject constructor(
                         ?.alternatives
                         .orEmpty()
 
+                    val videos = exercisePickerState.allExercises
+                        .firstOrNull { definition ->
+                            definition.id == exercise.selectedExerciseDefinitionId
+                        }
+                        ?.videos
+                        .orEmpty()
+
                     exercise.toUi(
                         setDrafts = drafts,
                         alternatives = alternatives,
+                        videos = videos,
                     )
                 },
             availableExercises = exercisePickerState.exercises,

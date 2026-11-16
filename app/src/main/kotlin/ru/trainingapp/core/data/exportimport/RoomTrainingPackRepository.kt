@@ -5,6 +5,7 @@ import kotlinx.coroutines.withContext
 import ru.trainingapp.core.data.exportimport.dto.CURRENT_TRAINING_PACK_SCHEMA_VERSION
 import ru.trainingapp.core.data.exportimport.dto.ExportExerciseDto
 import ru.trainingapp.core.data.exportimport.dto.ExportExerciseImageDto
+import ru.trainingapp.core.data.exportimport.dto.ExportExerciseVideoDto
 import ru.trainingapp.core.data.exportimport.dto.ExportTagDto
 import ru.trainingapp.core.data.exportimport.dto.ExportWorkoutDto
 import ru.trainingapp.core.data.exportimport.dto.ExportWorkoutExerciseDto
@@ -15,12 +16,14 @@ import ru.trainingapp.core.data.exportimport.dto.TrainingPackDto
 import ru.trainingapp.core.database.dao.ExerciseDefinitionDao
 import ru.trainingapp.core.database.dao.ExerciseImageDao
 import ru.trainingapp.core.database.dao.ExerciseMuscleDao
+import ru.trainingapp.core.database.dao.ExerciseVideoDao
 import ru.trainingapp.core.database.dao.TagDao
 import ru.trainingapp.core.database.dao.WorkoutDao
 import ru.trainingapp.core.database.dao.WorkoutExerciseDao
 import ru.trainingapp.core.database.dao.WorkoutExerciseSetDao
 import ru.trainingapp.core.database.entity.ExerciseDefinitionEntity
 import ru.trainingapp.core.database.entity.ExerciseImageEntity
+import ru.trainingapp.core.database.entity.ExerciseVideoEntity
 import ru.trainingapp.core.database.entity.TagEntity
 import ru.trainingapp.core.database.entity.WorkoutEntity
 import ru.trainingapp.core.database.entity.WorkoutExerciseEntity
@@ -37,6 +40,7 @@ class RoomTrainingPackRepository @Inject constructor(
     private val exerciseDefinitionDao: ExerciseDefinitionDao,
     private val tagDao: TagDao,
     private val exerciseImageDao: ExerciseImageDao,
+    private val exerciseVideoDao: ExerciseVideoDao,
     private val exerciseMuscleDao: ExerciseMuscleDao,
     private val workoutDao: WorkoutDao,
     private val workoutExerciseDao: WorkoutExerciseDao,
@@ -46,6 +50,8 @@ class RoomTrainingPackRepository @Inject constructor(
     private val zipReader: TrainingPackZipReader,
     private val imageExporter: TrainingPackImageExporter,
     private val imageImporter: TrainingPackImageImporter,
+    private val videoExporter: TrainingPackVideoExporter,
+    private val videoImporter: TrainingPackVideoImporter,
 ) : TrainingPackRepository {
 
     override suspend fun exportExercise(
@@ -70,12 +76,14 @@ class RoomTrainingPackRepository @Inject constructor(
             .toMap()
 
         val imageSources = mutableListOf<TrainingPackImageSource>()
+        val videoSources = mutableListOf<TrainingPackVideoSource>()
         val exportExercise = buildExportExercise(
             exercise = exercise,
             exerciseRef = exerciseRef,
             tags = tags,
             tagRefsById = tagRefsById,
             imageSources = imageSources,
+            videoSources = videoSources,
         )
 
         val trainingPack = TrainingPackDto(
@@ -97,6 +105,7 @@ class RoomTrainingPackRepository @Inject constructor(
             destinationUri = destinationUri,
             manifestJson = jsonCodec.encode(trainingPack),
             imageSources = imageSources,
+            videoSources = videoSources,
         )
     }
 
@@ -158,6 +167,7 @@ class RoomTrainingPackRepository @Inject constructor(
             .toMap()
 
         val imageSources = mutableListOf<TrainingPackImageSource>()
+        val videoSources = mutableListOf<TrainingPackVideoSource>()
         val exportExercises = exercises.map { exercise ->
             buildExportExercise(
                 exercise = exercise,
@@ -165,6 +175,7 @@ class RoomTrainingPackRepository @Inject constructor(
                 tags = exerciseTagsById[exercise.id].orEmpty(),
                 tagRefsById = tagRefsById,
                 imageSources = imageSources,
+                videoSources = videoSources,
             )
         }
 
@@ -213,6 +224,7 @@ class RoomTrainingPackRepository @Inject constructor(
             destinationUri = destinationUri,
             manifestJson = jsonCodec.encode(trainingPack),
             imageSources = imageSources,
+            videoSources = videoSources,
         )
     }
 
@@ -256,6 +268,7 @@ class RoomTrainingPackRepository @Inject constructor(
         tags: List<TagEntity>,
         tagRefsById: Map<Long, String>,
         imageSources: MutableList<TrainingPackImageSource>,
+        videoSources: MutableList<TrainingPackVideoSource>,
     ): ExportExerciseDto {
         val images = exerciseImageDao
             .getImagesByExerciseDefinitionId(exercise.id)
@@ -281,6 +294,26 @@ class RoomTrainingPackRepository @Inject constructor(
                 )
             }
 
+        val videos = exerciseVideoDao
+            .getVideosByExerciseDefinitionId(exercise.id)
+            .filter { video -> videoExporter.canOpen(video.uri) }
+            .sortedBy { video -> video.sortOrder }
+            .mapIndexed { index, video ->
+                val extension = videoExporter.resolveExtension(video.uri)
+                val videoPath = "videos/exercises/$exerciseRef/video_${index + 1}.$extension"
+
+                videoSources += TrainingPackVideoSource(
+                    path = videoPath,
+                    sourceUri = video.uri,
+                )
+
+                ExportExerciseVideoDto(
+                    ref = "${exerciseRef}_video_${index + 1}",
+                    path = videoPath,
+                    sortOrder = video.sortOrder,
+                )
+            }
+
         return ExportExerciseDto(
             ref = exerciseRef,
             name = exercise.name,
@@ -297,6 +330,7 @@ class RoomTrainingPackRepository @Inject constructor(
                     loadType = MuscleLoadType.SECONDARY.code,
                 ),
             images = images,
+            videos = videos,
         )
     }
 
@@ -384,6 +418,7 @@ class RoomTrainingPackRepository @Inject constructor(
             createdExercises = importedExercises.createdCount,
             createdTags = importedTags.createdCount,
             createdImages = importedExercises.createdImages,
+            createdVideos = importedExercises.createdVideos,
             warnings = warnings,
         )
     }
@@ -514,6 +549,7 @@ class RoomTrainingPackRepository @Inject constructor(
             createdExercises = importedExercises.createdCount,
             createdTags = importedTags.createdCount,
             createdImages = importedExercises.createdImages,
+            createdVideos = importedExercises.createdVideos,
             warnings = warnings,
         )
     }
@@ -585,6 +621,7 @@ class RoomTrainingPackRepository @Inject constructor(
         val importedExerciseIdsByRef = linkedMapOf<String, Long>()
         var createdExercises = 0
         var createdImages = 0
+        var createdVideos = 0
 
         exercises.forEachIndexed { index, exerciseDto ->
             val exerciseRef = exerciseDto.ref?.trim().orEmpty()
@@ -643,6 +680,15 @@ class RoomTrainingPackRepository @Inject constructor(
                 warnings = warnings,
             )
 
+            createdVideos += importExerciseVideos(
+                exerciseDefinitionId = exerciseId,
+                exerciseName = importedName,
+                videos = exerciseDto.videos,
+                extractedPack = extractedPack,
+                now = now,
+                warnings = warnings,
+            )
+
             importedExerciseIdsByRef[exerciseRef] = exerciseId
             createdExercises++
         }
@@ -651,6 +697,7 @@ class RoomTrainingPackRepository @Inject constructor(
             idsByRef = importedExerciseIdsByRef,
             createdCount = createdExercises,
             createdImages = createdImages,
+            createdVideos = createdVideos,
         )
     }
 
@@ -731,6 +778,73 @@ class RoomTrainingPackRepository @Inject constructor(
         }
 
         return copiedImages.size
+    }
+
+    private suspend fun importExerciseVideos(
+        exerciseDefinitionId: Long,
+        exerciseName: String,
+        videos: List<ExportExerciseVideoDto>,
+        extractedPack: ExtractedTrainingPack,
+        now: Long,
+        warnings: MutableList<String>,
+    ): Int {
+        val videoCandidates = videos
+            .mapIndexedNotNull { videoIndex, videoDto ->
+                val path = videoDto.path?.trim().orEmpty()
+
+                if (!isExpectedVideoPath(path)) {
+                    warnings += "У упражнения «$exerciseName» пропущено видео с некорректным path."
+                    return@mapIndexedNotNull null
+                }
+
+                val sourceFile = extractedPack.filesByPath[path]
+
+                if (sourceFile == null || !sourceFile.isFile) {
+                    warnings += "У упражнения «$exerciseName» не найдено видео $path."
+                    return@mapIndexedNotNull null
+                }
+
+                ImportVideoCandidate(
+                    archiveIndex = videoIndex,
+                    path = path,
+                    sortOrder = videoDto.sortOrder ?: videoIndex,
+                    sourceFile = sourceFile,
+                )
+            }
+            .sortedWith(
+                compareBy<ImportVideoCandidate> { candidate -> candidate.sortOrder }
+                    .thenBy { candidate -> candidate.archiveIndex }
+            )
+
+        val copiedVideos = videoCandidates.mapNotNull { candidate ->
+            runCatching {
+                ImportedVideo(
+                    candidate = candidate,
+                    localUri = videoImporter.copyToPrivateStorage(
+                        exerciseDefinitionId = exerciseDefinitionId,
+                        sourceFile = candidate.sourceFile,
+                        archivePath = candidate.path,
+                    ),
+                )
+            }.getOrElse { exception ->
+                warnings += "Не удалось импортировать видео ${candidate.path}: ${exception.message.orEmpty()}"
+                null
+            }
+        }
+
+        copiedVideos.forEach { importedVideo ->
+            exerciseVideoDao.insertVideo(
+                ExerciseVideoEntity(
+                    exerciseDefinitionId = exerciseDefinitionId,
+                    uri = importedVideo.localUri,
+                    sortOrder = importedVideo.candidate.sortOrder,
+                    createdAt = now,
+                    updatedAt = now,
+                )
+            )
+        }
+
+        return copiedVideos.size
     }
 
     private suspend fun importWorkoutExerciseSets(
@@ -906,6 +1020,20 @@ class RoomTrainingPackRepository @Inject constructor(
             .none { segment -> segment == ".." || segment == "." }
     }
 
+    private fun isExpectedVideoPath(path: String): Boolean {
+        if (!path.startsWith("videos/exercises/")) {
+            return false
+        }
+
+        if (path.startsWith('/') || path.startsWith('\\')) {
+            return false
+        }
+
+        return path
+            .split('/', '\\')
+            .none { segment -> segment == ".." || segment == "." }
+    }
+
     companion object {
         private const val SOURCE_APP = "fit-training-progress"
     }
@@ -920,6 +1048,7 @@ private data class ImportedExercises(
     val idsByRef: Map<String, Long>,
     val createdCount: Int,
     val createdImages: Int,
+    val createdVideos: Int,
 )
 
 private data class ImportImageCandidate(
@@ -935,5 +1064,17 @@ private data class ImportImageCandidate(
 
 private data class ImportedImage(
     val candidate: ImportImageCandidate,
+    val localUri: String,
+)
+
+private data class ImportVideoCandidate(
+    val archiveIndex: Int,
+    val path: String,
+    val sortOrder: Int,
+    val sourceFile: java.io.File,
+)
+
+private data class ImportedVideo(
+    val candidate: ImportVideoCandidate,
     val localUri: String,
 )

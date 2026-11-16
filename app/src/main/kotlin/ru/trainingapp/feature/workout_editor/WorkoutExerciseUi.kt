@@ -1,6 +1,7 @@
 package ru.trainingapp.feature.workout_editor
 
 import ru.trainingapp.core.model.ExerciseDefinitionAlternative
+import ru.trainingapp.core.model.ExerciseVideo
 import ru.trainingapp.core.model.WeightUnit
 import ru.trainingapp.core.model.WorkoutExercise
 import ru.trainingapp.core.model.WorkoutExerciseSet
@@ -18,6 +19,7 @@ data class WorkoutExerciseUi(
     val executionMethod: String?,
     val isChecked: Boolean,
     val alternatives: List<WorkoutExerciseAlternativeUi>,
+    val videos: List<ExerciseVideo>,
     val sets: List<WorkoutExerciseSetUi>,
     val sectionId: String? = null,
     val sectionName: String? = null,
@@ -48,6 +50,7 @@ data class WorkoutExerciseSetDraft(
 fun WorkoutExercise.toUi(
     setDrafts: Map<Long, WorkoutExerciseSetDraft>,
     alternatives: List<ExerciseDefinitionAlternative>,
+    videos: List<ExerciseVideo>,
 ): WorkoutExerciseUi {
     return WorkoutExerciseUi(
         id = id,
@@ -68,6 +71,7 @@ fun WorkoutExercise.toUi(
                 name = alternative.name,
             )
         },
+        videos = videos,
         sets = sets.map { set ->
             set.toUi(
                 draft = setDrafts[set.id],

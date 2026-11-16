@@ -9,10 +9,12 @@ import ru.trainingapp.core.database.dao.ExerciseAlternativeDao
 import ru.trainingapp.core.database.dao.ExerciseDefinitionDao
 import ru.trainingapp.core.database.dao.ExerciseImageDao
 import ru.trainingapp.core.database.dao.ExerciseMuscleDao
+import ru.trainingapp.core.database.dao.ExerciseVideoDao
 import ru.trainingapp.core.database.dao.TagDao
 import ru.trainingapp.core.database.entity.ExerciseDefinitionEntity
 import ru.trainingapp.core.database.entity.ExerciseDefinitionMuscleCrossRefEntity
 import ru.trainingapp.core.database.entity.ExerciseImageEntity
+import ru.trainingapp.core.database.entity.ExerciseVideoEntity
 import ru.trainingapp.core.domain.repository.ExerciseDefinitionRepository
 import ru.trainingapp.core.model.ExerciseDefinition
 import ru.trainingapp.core.model.ExerciseDefinitionAlternative
@@ -28,17 +30,21 @@ class RoomExerciseDefinitionRepository @Inject constructor(
     private val exerciseAlternativeDao: ExerciseAlternativeDao,
     private val exerciseImageDao: ExerciseImageDao,
     private val exerciseMuscleDao: ExerciseMuscleDao,
+    private val exerciseVideoDao: ExerciseVideoDao,
     private val exerciseImageFileStorage: ExerciseImageFileStorage,
+    private val exerciseVideoFileStorage: ExerciseVideoFileStorage,
 ) : ExerciseDefinitionRepository {
 
     override fun observeActiveExerciseDefinitions(): Flow<List<ExerciseDefinition>> {
         val assetsFlow = combine(
             exerciseImageDao.observeExerciseImages(),
             exerciseMuscleDao.observeMuscleCrossRefs(),
-        ) { imageEntities, muscleCrossRefs ->
+            exerciseVideoDao.observeExerciseVideos(),
+        ) { imageEntities, muscleCrossRefs, videoEntities ->
             ExerciseDefinitionAssets(
                 imageEntities = imageEntities,
                 muscleCrossRefs = muscleCrossRefs,
+                videoEntities = videoEntities,
             )
         }
 
@@ -73,6 +79,11 @@ class RoomExerciseDefinitionRepository @Inject constructor(
 
             val muscleRefsByExerciseDefinitionId = assets.muscleCrossRefs.groupBy(
                 keySelector = { crossRef -> crossRef.exerciseDefinitionId },
+            )
+
+            val videosByExerciseDefinitionId = assets.videoEntities.groupBy(
+                keySelector = { video -> video.exerciseDefinitionId },
+                valueTransform = { video -> video.toDomain() },
             )
 
             exerciseEntities.map { exerciseEntity ->
@@ -114,6 +125,9 @@ class RoomExerciseDefinitionRepository @Inject constructor(
                     images = imagesByExerciseDefinitionId[exerciseEntity.id]
                         .orEmpty()
                         .sortedBy { image -> image.sortOrder },
+                    videos = videosByExerciseDefinitionId[exerciseEntity.id]
+                        .orEmpty()
+                        .sortedBy { video -> video.sortOrder },
                 )
             }
         }
@@ -173,6 +187,9 @@ class RoomExerciseDefinitionRepository @Inject constructor(
         val sourceImages = exerciseImageDao
             .getImagesByExerciseDefinitionId(templateExerciseDefinitionId)
 
+        val sourceVideos = exerciseVideoDao
+            .getVideosByExerciseDefinitionId(templateExerciseDefinitionId)
+
         val now = System.currentTimeMillis()
         val newExerciseDefinitionId = exerciseDefinitionDao
             .insertExerciseDefinitionAndGetId(
@@ -210,6 +227,21 @@ class RoomExerciseDefinitionRepository @Inject constructor(
             }
         }
 
+        val copiedVideos = sourceVideos.mapNotNull { sourceVideo ->
+            exerciseVideoFileStorage.copyStoredVideoToExercise(
+                exerciseDefinitionId = newExerciseDefinitionId,
+                sourceUriString = sourceVideo.uri,
+            )?.let { copiedUri ->
+                sourceVideo.copy(
+                    id = 0L,
+                    exerciseDefinitionId = newExerciseDefinitionId,
+                    uri = copiedUri,
+                    createdAt = now,
+                    updatedAt = now,
+                )
+            }
+        }
+
         database.withTransaction {
             tagDao.replaceExerciseDefinitionTags(
                 exerciseDefinitionId = newExerciseDefinitionId,
@@ -229,6 +261,10 @@ class RoomExerciseDefinitionRepository @Inject constructor(
 
             copiedImages.forEach { image ->
                 exerciseImageDao.insertImage(image)
+            }
+
+            copiedVideos.forEach { video ->
+                exerciseVideoDao.insertVideo(video)
             }
         }
     }
@@ -584,4 +620,5 @@ class RoomExerciseDefinitionRepository @Inject constructor(
 private data class ExerciseDefinitionAssets(
     val imageEntities: List<ExerciseImageEntity>,
     val muscleCrossRefs: List<ExerciseDefinitionMuscleCrossRefEntity>,
+    val videoEntities: List<ExerciseVideoEntity>,
 )

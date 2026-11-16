@@ -1,6 +1,6 @@
 package ru.trainingapp.core.data.exportimport.dto
 
-const val CURRENT_TRAINING_PACK_SCHEMA_VERSION = 5
+const val CURRENT_TRAINING_PACK_SCHEMA_VERSION = 6
 const val TRAINING_PACK_EXPORT_TYPE_SINGLE_EXERCISE = "SINGLE_EXERCISE"
 const val TRAINING_PACK_EXPORT_TYPE_WORKOUT = "WORKOUT"
 
@@ -28,6 +28,7 @@ data class ExportExerciseDto(
     val muscleCodes: List<String> = emptyList(),
     val secondaryMuscleCodes: List<String> = emptyList(),
     val images: List<ExportExerciseImageDto> = emptyList(),
+    val videos: List<ExportExerciseVideoDto> = emptyList(),
 )
 
 data class ExportExerciseImageDto(
@@ -38,6 +39,12 @@ data class ExportExerciseImageDto(
     val cropZoom: Float? = null,
     val cropOffsetX: Float? = null,
     val cropOffsetY: Float? = null,
+)
+
+data class ExportExerciseVideoDto(
+    val ref: String? = null,
+    val path: String?,
+    val sortOrder: Int? = null,
 )
 
 data class ExportWorkoutDto(

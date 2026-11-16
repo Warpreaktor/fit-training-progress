@@ -5,5 +5,6 @@ data class TrainingPackImportResult(
     val createdExercises: Int = 0,
     val createdTags: Int = 0,
     val createdImages: Int = 0,
+    val createdVideos: Int = 0,
     val warnings: List<String> = emptyList(),
 )

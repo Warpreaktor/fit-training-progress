@@ -8,6 +8,7 @@ import ru.trainingapp.core.database.dao.ExerciseAlternativeDao
 import ru.trainingapp.core.database.dao.ExerciseDefinitionDao
 import ru.trainingapp.core.database.dao.ExerciseImageDao
 import ru.trainingapp.core.database.dao.ExerciseMuscleDao
+import ru.trainingapp.core.database.dao.ExerciseVideoDao
 import ru.trainingapp.core.database.dao.PendingWorkoutChangeDao
 import ru.trainingapp.core.database.dao.ProgressDao
 import ru.trainingapp.core.database.dao.TagDao
@@ -20,6 +21,7 @@ import ru.trainingapp.core.database.entity.ExerciseDefinitionAlternativeCrossRef
 import ru.trainingapp.core.database.entity.ExerciseDefinitionEntity
 import ru.trainingapp.core.database.entity.ExerciseDefinitionTagCrossRefEntity
 import ru.trainingapp.core.database.entity.ExerciseImageEntity
+import ru.trainingapp.core.database.entity.ExerciseVideoEntity
 import ru.trainingapp.core.database.entity.ExerciseDefinitionMuscleCrossRefEntity
 import ru.trainingapp.core.database.entity.PendingWorkoutChangeEntity
 import ru.trainingapp.core.database.entity.TagEntity
@@ -49,8 +51,9 @@ import ru.trainingapp.core.database.entity.WorkoutTagCrossRefEntity
         ExerciseDefinitionAlternativeCrossRefEntity::class,
         ExerciseDefinitionMuscleCrossRefEntity::class,
         ExerciseImageEntity::class,
+        ExerciseVideoEntity::class,
     ],
-    version = 12,
+    version = 13,
     exportSchema = true
 )
 @TypeConverters(DatabaseConverters::class)
@@ -79,4 +82,6 @@ abstract class TrainingDatabase : RoomDatabase() {
     abstract fun exerciseImageDao(): ExerciseImageDao
 
     abstract fun exerciseMuscleDao(): ExerciseMuscleDao
+
+    abstract fun exerciseVideoDao(): ExerciseVideoDao
 }

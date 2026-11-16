@@ -79,6 +79,30 @@ class TrainingPackZipReader @Inject constructor(
 
                             filesByPath[entryName] = targetFile
                         }
+
+                        entryName.startsWith(TrainingPackZipWriter.VIDEOS_DIRECTORY_PREFIX) -> {
+                            val targetFile = safeTargetFile(
+                                rootDirectory = rootDirectory,
+                                entryName = entryName,
+                            )
+
+                            targetFile.parentFile?.mkdirs()
+
+                            val copiedBytes = targetFile.outputStream().buffered().use { output ->
+                                zip.copyToWithLimit(
+                                    output = output,
+                                    maxBytes = MAX_VIDEO_BYTES,
+                                )
+                            }
+
+                            totalExtractedBytes += copiedBytes
+
+                            require(totalExtractedBytes <= MAX_ARCHIVE_BYTES) {
+                                "Архив слишком большой"
+                            }
+
+                            filesByPath[entryName] = targetFile
+                        }
                     }
 
                     zip.closeEntry()
@@ -167,6 +191,7 @@ class TrainingPackZipReader @Inject constructor(
     companion object {
         private const val MAX_MANIFEST_BYTES = 2L * 1024L * 1024L
         private const val MAX_IMAGE_BYTES = 40L * 1024L * 1024L
+        private const val MAX_VIDEO_BYTES = 80L * 1024L * 1024L
         private const val MAX_ARCHIVE_BYTES = 250L * 1024L * 1024L
     }
 }

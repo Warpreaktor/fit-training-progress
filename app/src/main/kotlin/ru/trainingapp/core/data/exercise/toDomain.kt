@@ -4,6 +4,7 @@ import ru.trainingapp.core.database.entity.ExerciseDefinitionEntity
 import ru.trainingapp.core.model.ExerciseDefinition
 import ru.trainingapp.core.model.ExerciseDefinitionAlternative
 import ru.trainingapp.core.model.ExerciseImage
+import ru.trainingapp.core.model.ExerciseVideo
 import ru.trainingapp.core.model.MuscleGroup
 import ru.trainingapp.core.model.Tag
 
@@ -13,6 +14,7 @@ fun ExerciseDefinitionEntity.toDomain(
     muscles: List<MuscleGroup> = emptyList(),
     secondaryMuscles: List<MuscleGroup> = emptyList(),
     images: List<ExerciseImage> = emptyList(),
+    videos: List<ExerciseVideo> = emptyList(),
 ): ExerciseDefinition {
     return ExerciseDefinition(
         id = id,
@@ -23,5 +25,6 @@ fun ExerciseDefinitionEntity.toDomain(
         muscles = muscles,
         secondaryMuscles = secondaryMuscles,
         images = images,
+        videos = videos,
     )
 }

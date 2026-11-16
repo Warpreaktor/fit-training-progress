@@ -85,6 +85,7 @@ import ru.trainingapp.core.model.WeightUnit
 import ru.trainingapp.core.model.ExerciseDefinition
 import ru.trainingapp.core.model.ExerciseImage
 import ru.trainingapp.core.ui.component.CroppedExerciseImage
+import ru.trainingapp.core.ui.component.ExerciseVideoPlayerDialog
 import kotlin.collections.indexOfFirst
 
 /**
@@ -976,6 +977,9 @@ private fun WorkoutExerciseCard(
     var isVariantDialogVisible by rememberSaveable(exercise.id, "variant-dialog") {
         mutableStateOf(false)
     }
+    var isVideoPlayerVisible by rememberSaveable(exercise.id, "video-player") {
+        mutableStateOf(false)
+    }
     var isExerciseMenuExpanded by rememberSaveable(exercise.id, "exercise-menu") {
         mutableStateOf(false)
     }
@@ -1095,6 +1099,16 @@ private fun WorkoutExerciseCard(
                                             isCommentDialogVisible = true
                                         },
                                     )
+
+                                    if (exercise.videos.isNotEmpty()) {
+                                        DropdownMenuItem(
+                                            text = { Text("Видео") },
+                                            onClick = {
+                                                isExerciseMenuExpanded = false
+                                                isVideoPlayerVisible = true
+                                            },
+                                        )
+                                    }
                                 }
                             }
                         }
@@ -1286,6 +1300,18 @@ private fun WorkoutExerciseCard(
                     }
                 }
             }
+        }
+    }
+
+    if (isVideoPlayerVisible) {
+        exercise.videos.firstOrNull()?.let { video ->
+            ExerciseVideoPlayerDialog(
+                exerciseName = exercise.exerciseName,
+                video = video,
+                onDismiss = {
+                    isVideoPlayerVisible = false
+                },
+            )
         }
     }
 

@@ -4,6 +4,7 @@ import org.json.JSONArray
 import org.json.JSONObject
 import ru.trainingapp.core.data.exportimport.dto.ExportExerciseDto
 import ru.trainingapp.core.data.exportimport.dto.ExportExerciseImageDto
+import ru.trainingapp.core.data.exportimport.dto.ExportExerciseVideoDto
 import ru.trainingapp.core.data.exportimport.dto.ExportTagDto
 import ru.trainingapp.core.data.exportimport.dto.ExportWorkoutDto
 import ru.trainingapp.core.data.exportimport.dto.ExportWorkoutExerciseDto
@@ -87,6 +88,13 @@ class TrainingPackJsonCodec @Inject constructor() {
                             cropOffsetY = image.optNullableDouble("cropOffsetY")?.toFloat(),
                         )
                     },
+                    videos = item.optArray("videos").mapObjects { video, videoIndex ->
+                        ExportExerciseVideoDto(
+                            ref = video.optNullableString("ref"),
+                            path = video.optNullableString("path"),
+                            sortOrder = video.optNullableInt("sortOrder") ?: videoIndex,
+                        )
+                    },
                 )
             },
             workouts = root.optArray("workouts").mapObjects { item, _ ->
@@ -142,6 +150,14 @@ class TrainingPackJsonCodec @Inject constructor() {
                     }
                 },
             )
+            .put(
+                "videos",
+                JSONArray().apply {
+                    videos.forEach { video ->
+                        put(video.toJson())
+                    }
+                },
+            )
     }
 
     private fun ExportExerciseImageDto.toJson(): JSONObject {
@@ -153,6 +169,13 @@ class TrainingPackJsonCodec @Inject constructor() {
             .putNullable("cropZoom", cropZoom)
             .putNullable("cropOffsetX", cropOffsetX)
             .putNullable("cropOffsetY", cropOffsetY)
+    }
+
+    private fun ExportExerciseVideoDto.toJson(): JSONObject {
+        return JSONObject()
+            .putNullable("ref", ref)
+            .putNullable("path", path)
+            .putNullable("sortOrder", sortOrder)
     }
 
     private fun ExportWorkoutDto.toJson(): JSONObject {
