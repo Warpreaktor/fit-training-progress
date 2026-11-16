@@ -66,9 +66,12 @@ import ru.trainingapp.core.ui.component.EXERCISE_IMAGE_ASPECT_RATIO
 @Composable
 fun ExerciseCatalogRoute(
     onBack: () -> Unit,
+    official: Boolean = false,
     viewModel: ExerciseCatalogViewModel = hiltViewModel(),
 ) {
-    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val myUiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val officialUiState by viewModel.officialUiState.collectAsStateWithLifecycle()
+    val uiState = if (official) officialUiState else myUiState
 
     val exportExerciseLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.CreateDocument("application/zip"),
@@ -93,10 +96,13 @@ fun ExerciseCatalogRoute(
     ExerciseCatalogScreen(
         uiState = uiState,
         onBack = onBack,
+        official = official,
+        onCopyOfficialExerciseClick = viewModel::onCopyOfficialExerciseClick,
         onAddExerciseClick = viewModel::onAddExerciseClick,
         onEditExerciseClick = viewModel::onEditExerciseClick,
         onEditExerciseWorkoutsClick = { exerciseDefinitionId ->
-            viewModel.onEditExerciseWorkoutsClick(exerciseDefinitionId)
+            if (official) viewModel.onAddOfficialExerciseToWorkoutClick(exerciseDefinitionId)
+            else viewModel.onEditExerciseWorkoutsClick(exerciseDefinitionId)
         },
         onArchiveExerciseClick = viewModel::onArchiveExerciseClick,
         onEditorNameChange = viewModel::onEditorNameChange,
@@ -159,6 +165,8 @@ fun ExerciseCatalogRoute(
 fun ExerciseCatalogScreen(
     uiState: ExerciseCatalogUiState,
     onBack: () -> Unit,
+    official: Boolean = false,
+    onCopyOfficialExerciseClick: (Long) -> Unit = {},
     onAddExerciseClick: () -> Unit,
     onEditExerciseClick: (ExerciseDefinition) -> Unit,
     onEditExerciseWorkoutsClick: (Long) -> Unit,
@@ -212,13 +220,14 @@ fun ExerciseCatalogScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Справочник упражнений") },
+                title = { Text(if (official) "Каталог упражнений" else "Мои упражнения") },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Text("‹", style = MaterialTheme.typography.headlineMedium)
                     }
                 },
                 actions = {
+                    if (!official) {
                     IconButton(
                         onClick = {
                             isScreenMenuExpanded = true
@@ -253,6 +262,7 @@ fun ExerciseCatalogScreen(
                                 onImportExerciseClick()
                             },
                         )
+                    }
                     }
                 },
             )
@@ -295,7 +305,7 @@ fun ExerciseCatalogScreen(
                         text = if (hasFilter) {
                             "Ничего не найдено"
                         } else {
-                            "Пока нет упражнений"
+                            if (official) "Каталог пока пуст" else "Пока нет упражнений"
                         },
                         style = MaterialTheme.typography.titleMedium,
                     )
@@ -304,7 +314,7 @@ fun ExerciseCatalogScreen(
                         text = if (hasFilter) {
                             "Под выбранные теги нет упражнений."
                         } else {
-                            "Добавь первое упражнение в справочник."
+                            if (official) "Предустановленные упражнения появятся после загрузки каталога." else "Добавь первое упражнение в справочник."
                         },
                         style = MaterialTheme.typography.bodyMedium,
                     )
@@ -321,6 +331,8 @@ fun ExerciseCatalogScreen(
                     ) { exercise ->
                         ExerciseCatalogItem(
                             exercise = exercise,
+                            official = official,
+                            onCopyClick = { onCopyOfficialExerciseClick(exercise.id) },
                             onEditClick = { onEditExerciseClick(exercise) },
                             onWorkoutsClick = { onEditExerciseWorkoutsClick(exercise.id) },
                             onEditTagsClick = { onEditExerciseTagsClick(exercise) },
@@ -332,7 +344,9 @@ fun ExerciseCatalogScreen(
                                 videoExerciseDefinitionId = exercise.id
                             },
                             onImageClick = {
-                                if (exercise.images.isEmpty()) {
+                                if (official) {
+                                    onOpenImageViewer(exercise.id)
+                                } else if (exercise.images.isEmpty()) {
                                     onAddImagesClick(
                                         exercise,
                                         true,
@@ -356,6 +370,7 @@ fun ExerciseCatalogScreen(
             if (uiState.imageViewer.isVisible && imageViewerExercise != null) {
                 ExerciseImageViewer(
                     exercise = imageViewerExercise,
+                    readOnly = official,
                     onDismiss = onDismissImageViewer,
                     onAddImagesClick = {
                         onDismissImageViewer()
@@ -498,6 +513,8 @@ fun ExerciseCatalogScreen(
 @Composable
 private fun ExerciseCatalogItem(
     exercise: ExerciseDefinition,
+    official: Boolean = false,
+    onCopyClick: () -> Unit = {},
     onEditClick: () -> Unit,
     onWorkoutsClick: () -> Unit,
     onEditTagsClick: () -> Unit,
@@ -544,6 +561,15 @@ private fun ExerciseCatalogItem(
                             isMenuExpanded = false
                         },
                     ) {
+                        if (official) {
+                            DropdownMenuItem(
+                                text = { Text("Добавить себе") },
+                                onClick = {
+                                    isMenuExpanded = false
+                                    onCopyClick()
+                                },
+                            )
+                        } else {
                         DropdownMenuItem(
                             text = { Text("Изменить") },
                             onClick = {
@@ -576,15 +602,6 @@ private fun ExerciseCatalogItem(
                             },
                         )
 
-                        if (exercise.videos.isNotEmpty()) {
-                            DropdownMenuItem(
-                                text = { Text("Видео") },
-                                onClick = {
-                                    isMenuExpanded = false
-                                    onVideoClick()
-                                },
-                            )
-                        }
 
                         DropdownMenuItem(
                             text = { Text("Выгрузить") },
@@ -601,6 +618,16 @@ private fun ExerciseCatalogItem(
                                 onArchiveClick()
                             },
                         )
+                        }
+                        if (exercise.videos.isNotEmpty()) {
+                            DropdownMenuItem(
+                                text = { Text("Видео") },
+                                onClick = {
+                                    isMenuExpanded = false
+                                    onVideoClick()
+                                },
+                            )
+                        }
                     }
                 }
             }

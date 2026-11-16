@@ -29,6 +29,9 @@ fun TrainingNavHost(
                 onOpenExerciseCatalog = {
                     navController.navigate(AppRoute.ExerciseCatalog.route)
                 },
+                onOpenOfficialExerciseCatalog = {
+                    navController.navigate(AppRoute.OfficialExerciseCatalog.route)
+                },
                 onOpenWorkoutProgress = { workoutId ->
                     navController.navigate(AppRoute.WorkoutProgress.createRoute(workoutId))
                 },
@@ -63,6 +66,13 @@ fun TrainingNavHost(
 
         composable(AppRoute.ExerciseCatalog.route) {
             ExerciseCatalogRoute(onBack = { navController.popBackStack() })
+        }
+
+        composable(AppRoute.OfficialExerciseCatalog.route) {
+            ExerciseCatalogRoute(
+                onBack = { navController.popBackStack() },
+                official = true,
+            )
         }
 
         composable(AppRoute.Progress.route) {

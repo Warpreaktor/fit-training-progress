@@ -71,6 +71,7 @@ import ru.trainingapp.core.ui.component.EmptyState
 fun WorkoutListRoute(
     onOpenWorkout: (Long) -> Unit,
     onOpenExerciseCatalog: () -> Unit,
+    onOpenOfficialExerciseCatalog: () -> Unit,
     onOpenWorkoutProgress: (Long) -> Unit,
     onOpenSettings: () -> Unit,
     viewModel: WorkoutListViewModel = hiltViewModel(),
@@ -93,6 +94,7 @@ fun WorkoutListRoute(
         uiState = uiState,
         onOpenWorkout = onOpenWorkout,
         onOpenExerciseCatalog = onOpenExerciseCatalog,
+        onOpenOfficialExerciseCatalog = onOpenOfficialExerciseCatalog,
         onOpenWorkoutProgress = onOpenWorkoutProgress,
         onOpenSettings = onOpenSettings,
         onCreateWorkoutClick = viewModel::onCreateWorkoutClick,
@@ -136,6 +138,7 @@ fun WorkoutListScreen(
     uiState: WorkoutListUiState,
     onOpenWorkout: (Long) -> Unit,
     onOpenExerciseCatalog: () -> Unit,
+    onOpenOfficialExerciseCatalog: () -> Unit,
     onOpenWorkoutProgress: (Long) -> Unit,
     onOpenSettings: () -> Unit,
     onCreateWorkoutClick: () -> Unit,
@@ -216,11 +219,13 @@ fun WorkoutListScreen(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Button(onClick = onOpenExerciseCatalog) {
-                    Text("Упражнения")
+                    Text("Мои упражнения")
                 }
-
+                Button(onClick = onOpenOfficialExerciseCatalog) {
+                    Text("Каталог упражнений")
+                }
                 Button(onClick = onOpenSettings) {
                     Text("#")
                 }

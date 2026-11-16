@@ -12,9 +12,12 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import ru.trainingapp.core.domain.exercise.AddExerciseImagesUseCase
+import ru.trainingapp.core.data.exercise.OfficialExerciseCatalog
+import ru.trainingapp.core.data.exercise.OfficialExerciseCopy
 import ru.trainingapp.core.domain.exercise.ArchiveExerciseDefinitionUseCase
 import ru.trainingapp.core.domain.exercise.CreateExerciseDefinitionUseCase
 import ru.trainingapp.core.domain.exercise.DeleteExerciseImageUseCase
@@ -45,6 +48,8 @@ import javax.inject.Inject
 @OptIn(ExperimentalCoroutinesApi::class)
 @HiltViewModel
 class ExerciseCatalogViewModel @Inject constructor(
+    private val officialCatalog: OfficialExerciseCatalog,
+    private val officialCopy: OfficialExerciseCopy,
     observeExerciseDefinitionsUseCase: ObserveExerciseDefinitionsUseCase,
     observeTagsUseCase: ObserveTagsUseCase,
     observeWorkoutUseCase: ObserveWorkoutUseCase,
@@ -184,6 +189,49 @@ class ExerciseCatalogViewModel @Inject constructor(
             started = SharingStarted.WhileSubscribed(5_000),
             initialValue = ExerciseCatalogUiState(),
         )
+
+    // Both routes share the same Compose screen; only the source and actions differ.
+    val officialUiState: StateFlow<ExerciseCatalogUiState> = uiState.map { state ->
+        val query = state.searchQuery.trim()
+        val exercises = officialCatalog.exercises
+        state.copy(
+            exercises = exercises.filter { it.name.contains(query, ignoreCase = true) },
+            allExercises = exercises,
+            allTags = emptyList(),
+            selectedFilterTagIds = emptySet(),
+        )
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5_000),
+        initialValue = ExerciseCatalogUiState(
+            exercises = officialCatalog.exercises,
+            allExercises = officialCatalog.exercises,
+        ),
+    )
+
+    fun onCopyOfficialExerciseClick(officialId: Long) {
+        viewModelScope.launch {
+            transferState.value = ExerciseTransferState(isInProgress = true)
+            transferState.value = runCatching {
+                officialCopy.copyToMyExercises(officialId)
+                ExerciseTransferState(message = "Упражнение добавлено в мои упражнения")
+            }.getOrElse { error ->
+                ExerciseTransferState(message = error.message ?: "Не удалось добавить упражнение")
+            }
+        }
+    }
+
+    fun onAddOfficialExerciseToWorkoutClick(officialId: Long) {
+        viewModelScope.launch {
+            transferState.value = ExerciseTransferState(isInProgress = true)
+            val localId = runCatching { officialCopy.copyToMyExercises(officialId) }
+            transferState.value = localId.fold(
+                onSuccess = { ExerciseTransferState() },
+                onFailure = { ExerciseTransferState(message = it.message ?: "Не удалось добавить упражнение") },
+            )
+            localId.getOrNull()?.let(::onEditExerciseWorkoutsClick)
+        }
+    }
 
     fun onAddExerciseClick() {
         nextDraftImageKey = -1L

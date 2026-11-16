@@ -15,6 +15,8 @@ sealed class AppRoute(val route: String) {
 
     data object ExerciseCatalog : AppRoute("exercises")
 
+    data object OfficialExerciseCatalog : AppRoute("official-exercises")
+
     data object Progress : AppRoute("progress")
 
     data object WorkoutProgress : AppRoute("progress/workout/{workoutId}") {

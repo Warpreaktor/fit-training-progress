@@ -33,6 +33,7 @@ fun ExerciseImageViewer(
     onEditCropClick: (Long) -> Unit,
     onSetCoverClick: (Long) -> Unit,
     onDeleteClick: (Long) -> Unit,
+    readOnly: Boolean = false,
 ) {
     val images = exercise.images
 
@@ -136,7 +137,7 @@ fun ExerciseImageViewer(
                     }
                 }
 
-                Column(
+                if (!readOnly) Column(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(12.dp),
