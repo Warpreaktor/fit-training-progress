@@ -8,6 +8,7 @@ import javax.inject.Inject
 import org.json.JSONArray
 import ru.trainingapp.core.model.ExerciseDefinition
 import ru.trainingapp.core.model.ExerciseImage
+import ru.trainingapp.core.model.ExerciseVideo
 import ru.trainingapp.core.model.MuscleGroup
 
 /** Read-only catalog bundled with the APK. JSON array order is preserved. */
@@ -23,6 +24,7 @@ class OfficialExerciseCatalog @Inject constructor(
             val sourceId = item.getString("id")
             require(sourceId.isNotBlank()) { "Blank official exercise id at $index" }
             val imagePaths = item.optJSONArray("images").strings()
+            val videoPaths = item.optJSONArray("videos").strings()
             OfficialExercise(
                 sourceId = sourceId,
                 model = ExerciseDefinition(
@@ -44,8 +46,19 @@ class OfficialExerciseCatalog @Inject constructor(
                             updatedAt = 0L,
                         )
                     },
+                    videos = videoPaths.mapIndexed { videoIndex, path ->
+                        ExerciseVideo(
+                            id = -(index * 1000L + videoIndex + 501L),
+                            exerciseDefinitionId = -(index + 1L),
+                            uri = "asset:///official_catalog/$path",
+                            sortOrder = videoIndex,
+                            createdAt = 0L,
+                            updatedAt = 0L,
+                        )
+                    },
                 ),
                 images = imagePaths,
+                videos = videoPaths,
             )
         }.also { exercises ->
             require(exercises.map { it.sourceId }.distinct().size == exercises.size) {
@@ -60,8 +73,8 @@ class OfficialExerciseCatalog @Inject constructor(
 
     /** Asset files are copied into cache solely to support the existing image UI. */
     private fun assetFile(path: String): File {
-        require(path.startsWith("images/") && !path.contains("..") && '\\' !in path) {
-            "Invalid official image path: $path"
+        require((path.startsWith("images/") || path.startsWith("videos/")) && !path.contains("..") && '\\' !in path) {
+            "Invalid official asset path: $path"
         }
         val target = File(context.cacheDir, "official_catalog/$path")
         if (!target.isFile) {
@@ -76,12 +89,17 @@ class OfficialExerciseCatalog @Inject constructor(
     fun imageUris(exercise: OfficialExercise): List<String> = exercise.images.map { path ->
         Uri.fromFile(assetFile(path)).toString()
     }
+
+    fun videoUris(exercise: OfficialExercise): List<String> = exercise.videos.map { path ->
+        Uri.fromFile(assetFile(path)).toString()
+    }
 }
 
 data class OfficialExercise(
     val sourceId: String,
     val model: ExerciseDefinition,
     val images: List<String>,
+    val videos: List<String>,
 )
 
 private fun JSONArray?.strings(): List<String> = if (this == null) emptyList()

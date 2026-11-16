@@ -13,12 +13,13 @@ Example entry (structure only, not an imported exercise):
   "description": "Описание и техника выполнения на русском языке",
   "muscles": ["CHEST"],
   "secondaryMuscles": ["TRICEPS"],
-  "images": ["images/upstream-stable-id/cover.webp"]
+  "images": ["images/upstream-stable-id/cover.webp"],
+  "videos": ["videos/upstream-stable-id/demo.mp4"]
 }
 ```
 
 Muscle codes are `ru.trainingapp.core.model.MuscleGroup` enum codes.
-Images are optional and resolve inside `app/src/main/assets/official_catalog/`.
+Images and videos are optional and resolve inside `app/src/main/assets/official_catalog/`.
+Recommended MP4 profile for catalog videos: H.264, 540p, no audio, accelerated ~2.5x.
 The asset catalog is never written to at runtime; imports create independent
-editable Room records. Video integration awaits completion of video classes
-missing in the uploaded source archive.
+editable Room records.
